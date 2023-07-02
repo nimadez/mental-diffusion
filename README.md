@@ -1,29 +1,30 @@
 ## Mental Diffusion
 
-<img style="width:100%;max-width:1280px" src="https://repository-images.githubusercontent.com/646072414/1468b045-c2e4-42f1-89b3-3ee61647458b">
+<img style="width:100%;max-width:1280px" src="https://repository-images.githubusercontent.com/646072414/78bd4c5c-feb5-438d-ba36-f6b22f73b7e0">
 
 Stable diffusion headless and web interface<br>
-Version 0.1.4 alpha<br>
-[Online Web Interface](https://nimadez.github.io/mental-diffusion/webui) | [Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG)
+Version 0.1.6 alpha<br>
+[Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG)
 
 - [Features](https://github.com/nimadez/mental-diffusion#features)
 - [Headless](https://github.com/nimadez/mental-diffusion#headless)
 - [Web Interface](https://github.com/nimadez/mental-diffusion#web-interface)
 - [Installation](https://github.com/nimadez/mental-diffusion#installation)
 - [Models](https://github.com/nimadez/mental-diffusion#models)
-- [Performance Tips](https://github.com/nimadez/mental-diffusion#performance-tips)
 - [Known Issues](https://github.com/nimadez/mental-diffusion#known-issues)
+- [FAQ](https://github.com/nimadez/mental-diffusion#faq)
 - [Credits](https://github.com/nimadez/mental-diffusion#credits)
 
 ## Features
 - [x] Accelerated Torch 2.0
 - [x] Lightweight layer on top of Diffusers
 - [x] Fast startup and render
+- [x] GPU and CPU *(slower)*
 - [x] Easy to use web interface
 - [x] Headless console for experts
 - [x] Websockets server
 - [x] Safetensors-only checkpoints
-- [x] JSON configuration file *(model paths)*
+- [x] JSON configuration file
 - [x] Schedulers *(ddpm, ddim, pndm, lms, euler, euler_anc)*
 - [x] Text to image
 - [x] Image to image
@@ -35,7 +36,7 @@ Version 0.1.4 alpha<br>
 - [x] PNG metadata
 - [x] Automatic pipeline switch
 - [x] File and base64 image inputs *(PNG)*
-- [x] Autodetect huggingface cache *(auto-offline)*
+- [x] Work offline, proxy supported
 - [x] No safety checker
 - [x] No miners, trackers, and telemetry
 - [x] Optimized for affordable hardware
@@ -43,6 +44,7 @@ Version 0.1.4 alpha<br>
 - [x] Support custom VAE
 - [ ] Support LoRA
 - [ ] Support ControlNet
+- [ ] Support Hypernetwork
 
 ## Requirements
 - At least 16 GB RAM
@@ -57,33 +59,33 @@ Example:  headless.py -p "prompt" -out base64
 Upscale:  headless.py -sr 0.1 -up true -i "/path-to-image.png" -of true
 Metadata: headless.py -meta "/path-to-image.png"
 Batch:    headless.py -p "prompt" -st 25 -b 10 -w 1200 -h 400
+CKPT:     headless.py -p "prompt" -ck "deliberate_v2"
 
---help              show this help message and exit
---get       -g      fetch data from server by record id (int)
+--help               show this help message and exit
+--get        -get    fetch data from server by record id (int)
 
---batch     -b      number of images to render (def: 1)
---scheduler -sc     ddpm, ddim, pndm, lms, euler, euler_anc (def: euler_anc)
---prompt    -p      positive prompt input
---negative  -n      negative prompt input
---width     -w      image width have to be divisible by 8 (def: 512)
---height    -h      image height have to be divisible by 8 (def: 512)
---seed      -s      seed number, 0 to randomize (def: 0)
---steps     -st     steps from 10 to 50, 20-25 is good enough (def: 20)
---cfg       -c      guidance scale, how closely linked to the prompt (def: 7.5)
---strength  -sr     how much respect the final image should pay to the original (def: 0.5)
---lora      -l      TODO (def: 0.0)
---image     -i      PNG file path or base64 PNG (def: '')
---mask      -m      PNG file path or base64 PNG (def: '')
---facefix   -ff     true/false, face restoration using gfpgan (def: false)
---upscale   -up     true/false, upscale using real-esrgan 4x (def: false)
---savefile  -sv     true/false, save image to PNG, contain metadata (def: true)
---onefile   -of     true/false, save the final result only (def: false)
---outpath   -o      /path-to-directory (def: ./.temp)
---filename  -f      filename prefix (.png extension is not required)
+--batch      -b      number of images to render (def: 1)
+--checkpoint -ck     set checkpoint by file name, null = default checkpoint (def: null)
+--scheduler  -sc     ddpm, ddim, pndm, lms, euler, euler_anc (def: euler_anc)
+--prompt     -p      positive prompt input
+--negative   -n      negative prompt input
+--width      -w      image width have to be divisible by 8 (def: 512)
+--height     -h      image height have to be divisible by 8 (def: 512)
+--seed       -s      seed number, 0 to randomize (def: 0)
+--steps      -st     steps from 10 to 50, 20-25 is good enough (def: 20)
+--guidance   -g      guidance scale, how closely linked to the prompt (def: 7.5)
+--strength   -sr     how much respect the final image should pay to the original (def: 0.5)
+--image      -i      PNG file path or base64 PNG (def: '')
+--mask       -m      PNG file path or base64 PNG (def: '')
+--facefix    -ff     true/false, face restoration using gfpgan (def: false)
+--upscale    -up     true/false, upscale using real-esrgan 4x (def: false)
+--savefile   -sv     true/false, save image to PNG, contain metadata (def: true)
+--onefile    -of     true/false, save the final result only (def: false)
+--outpath    -o      /path-to-directory (def: ./.temp)
+--filename   -f      filename prefix (.png extension is not required)
 
---ckpt      -ckpt   change/reload checkpoint by name
---metadata  -meta   /path-to-image.png, extract metadata from PNG
---out       -out    stdout 'metadata' or 'base64' (def: metadata)
+--metadata   -meta   /path-to-image.png, extract metadata from PNG
+--out        -out    stdout 'metadata' or 'base64' (def: metadata)
 
 * When the image is not empty, the pipeline switches to image-to-image
 * When the image and mask are not empty, the pipeline switches to inpainting
@@ -94,7 +96,7 @@ Incorrect and correct mask image
 
 
 ## Web Interface
-> Notice: The web interface is under active development
+> The web interface is a prototype with minimal bugs
 
 <img src="media/webui.jpg?raw=true">
 
@@ -106,7 +108,7 @@ Incorrect and correct mask image
 - [x] Painting canvas *(brush, line, eraser, mask, color picker)*
 - [x] Canvas editor *(flip, hue, saturation, brightness, contrast, sepia, invert)*
 - [x] Styles editor *(use predefined keywords, they are included in metadata)*
-- [x] Guide the AI using prompts, brush strokes and color adjustments
+- [x] Guide the AI using text, brush strokes and color adjustments
 - [x] Quick mask painting
 - [x] Generates input and mask images for outpainting
 - [x] Autosave prompts
@@ -118,7 +120,6 @@ Incorrect and correct mask image
 
 > - Your data is safe and can be loaded again as long as "Autosave File" is checked<br>
 > - If you want your painting to combine with the image pixels, you need to bake the canvas
-> - To start mask painting, check "Paint Mask", choose brush or line tool
 > - To create outpainting, set "Outpaint Padding" size, your initial image and mask will be generated for you (set Strength to 1.0)
 
 <img src="media/schedulers.jpg?raw=true"><br>
@@ -155,7 +156,7 @@ Incorrect and correct mask image
 | B | Brush tool |
 | L | Line tool |
 | E | Eraser tool |
-| M | Mask painting mode |
+| M | Mask tool |
 | ] | Increase tool size |
 | [ | Decrease tool size |
 | + | Increase tool opacity |
@@ -176,7 +177,7 @@ curl -o md-installer.py https://raw.githubusercontent.com/nimadez/mental-diffusi
 curl https://bootstrap.pypa.io/get-pip.py -k --ssl-no-revoke -o get-pip.py
 python get-pip.py
 python -m pip install accelerate==0.20.3
-python -m pip install diffusers==0.17.1
+python -m pip install diffusers==0.18.1
 python -m pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 python -m pip install transformers==4.30.0
 python -m pip install omegaconf==2.3.0
@@ -193,10 +194,10 @@ headless.py   -> use headless if you are familiar with consoles
 ```
 #### [ Automatic One-Time Downloads ]
 - 200 MB gfpgan weights *(root directory)*
-- 1.6 GB openai/clip-vit-large-patch14 *(huggingface cache)*
+- 1.7 GB openai/clip-vit-large-patch14 *(huggingface cache)*
 ```
-To prevent re-downloading models, add huggingface cache directory to your environment variables
-> setx HF_HOME D:\SDK\.cache\huggingface
+To prevent re-downloading huggingface cache, add HF cache directory to your environment variables
+> setx HF_HOME path-to-dir\.cache\huggingface
 ```
 
 ## Models
@@ -205,43 +206,51 @@ Checkpoints:<br>
 [sd-v1-5-inpainting.ckpt](https://huggingface.co/runwayml/stable-diffusion-inpainting/blob/main/sd-v1-5-inpainting.ckpt)<br>
 [Deliberate_v2.safetensors](https://huggingface.co/XpucT/Deliberate/blob/main/Deliberate_v2.safetensors)<br>
 [Deliberate-inpainting.safetensors](https://huggingface.co/XpucT/Deliberate/blob/main/Deliberate-inpainting.safetensors)<br>
+[Reliberate.safetensors](https://huggingface.co/XpucT/Reliberate/blob/main/Reliberate.safetensors)<br>
+[Reliberate-inpainting.safetensors](https://huggingface.co/XpucT/Reliberate/blob/main/Reliberate-inpainting.safetensors)<br>
 [dreamlike-diffusion-1.0.safetensors](https://huggingface.co/dreamlike-art/dreamlike-diffusion-1.0/blob/main/dreamlike-diffusion-1.0.safetensors)<br>
 [dreamlike-photoreal-2.0.safetensors](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/blob/main/dreamlike-photoreal-2.0.safetensors)<br>
 VAE: [vae-ft-mse-840000-ema-pruned.safetensors](https://huggingface.co/stabilityai/sd-vae-ft-mse-original/blob/main/vae-ft-mse-840000-ema-pruned.safetensors) *(optional)*<br>
-Face Restore: [GFPGANv1.4.pth](https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth) *(required)*<br>
-Upscale: [RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth) *(required)*<br>
+GFPGAN: [GFPGANv1.4.pth](https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth) *(required)*<br>
+RealESRGAN: [RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth) *(required)*<br>
 - All **.ckpt** checkpoints converted to **.safetensors** *(security)*
 - All checkpoints converted to **fp16** *(smaller size, use [prune.py](https://github.com/nimadez/mental-diffusion/tree/main/scripts/prune.py))*
 - All inpainting checkpoints must have "inpainting" in their filename
-- Checkpoints are optional, edit **config.json** to setup checkpoints
 - VAE is optional but recommended for getting optimal results
 - Back to the future, SD v1.x only!
 
 <img src="media/backtothefuture.jpg?raw=true">
 
-> - I do not support any models
+> - I do not officially support any model
 > - Visit [Civitai.com](https://civitai.com/) for more SD 1.5 checkpoints
-
-## Performance Tips
-```
-- Loading a new checkpoint may cause performance to drop for a few seconds
-- To achieve maximum performance, set the default startup checkpoint in the config.json file
-- Try the lower steps first, you can always move on to the next steps
-- Higher Steps and CFG values increase render time
-- The Strength amount is relative and depends on the number of Steps, higher values increase render time
-```
 
 ## Known Issues
 ```
-- Although the diffusers network is offline, it may try to
-connect to the internet from time to time when loading the checkpoint.
-These are bugs or missing data, close the server and run it again.
+- Mental Diffusion is offline, if the internet access is interrupted,
+if the connection is established, some data will be send and received
+when loading the checkpoint. (huggingface tries to compare files)
+```
+
+## FAQ
+```
+How to speed up rendering?
+- Do not constantly update the checkpoint, let it be cached and reused
+- Open NVIDIA Control Panel, enable "Adaptive" power management mode
+
+Why does it give a connection error when loading the checkpoint?
+See known issues, enable "use_proxy" or disable network connection.
+
+Is SDXL supported?
+SDXL requires 12 GB of video memory, it is not currently supported.
+SDXL does not appear to be aimed at the open-source community.
 ```
 
 ## History
 ```
-- Mental-diffusion started with "sdkit" and later evolved into diffusers
+0.1.6 -> back to the roots, major performance gain #1
+
 - Rename project from "undiff" to mental-diffusion
+- Mental-diffusion started with "sdkit" and later evolved into diffusers
 - Created for my personal use
 ```
 
@@ -254,8 +263,8 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [RunwayML](https://runwayml.com/)
 - [PyTorch](https://pytorch.org/)
 - [Diffusers](https://github.com/huggingface/diffusers)
-- [sdkit](https://github.com/easydiffusion)
 - [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
+- [sdkit](https://github.com/easydiffusion)
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 - [GFPGAN](https://github.com/TencentARC/GFPGAN)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)

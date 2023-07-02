@@ -1,7 +1,6 @@
 #
 # mental-diffusion utils
 #
-import os
 
 
 # ----- base64 PNG encoder/decoder -----
@@ -23,32 +22,42 @@ def base64Decode(str):
     return Image.open(BytesIO(b64decode(str.split(',')[1])))
 
 
-# ----- detect huggingface cache and change network -----
+# ----- get memory stats -----
 
 
-def defineNetwork():
+def mem_stats_total():
+    from psutil import cpu_percent, virtual_memory
+    from torch.cuda import mem_get_info, is_available
+    ram_total = virtual_memory().total
+    vram_total = mem_get_info("cuda:0")[0] if is_available() else 0
+    ram_total /= 1024 ** 3
+    vram_total /= 1024 ** 3
+    return [ ram_total, vram_total ]
+
+
+# ----- check huggingface cache -----
+
+
+def hf_cache_check(model, filename):
     from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
-
-    # required models
-    model = try_to_load_from_cache("openai/clip-vit-large-patch14", filename="pytorch_model.bin")
-    gfpgan_weights = os.path.exists("gfpgan/weights")
-
-    # network set to offline when huggingface cache exist
-    if isinstance(model, str) and gfpgan_weights:
+    cache = try_to_load_from_cache(model, filename=filename)
+    if isinstance(cache, str):
+        return True
+    elif cache is _CACHED_NO_EXIST:
         return False
-    elif model is _CACHED_NO_EXIST or not gfpgan_weights:
-        return True
     else:
-        return True
+        return False
 
 
-# ----- Custom checkpoint loader for safetensors -----
+# ----- custom checkpoint loader for safetensors -----
 # https://raw.githubusercontent.com/huggingface/diffusers/main/src/diffusers/loaders.py
 # add "original_config_file" to be able to load the checkpoint 100% offline
 # https://github.com/huggingface/diffusers/issues/3729
 
-def StableDiffusionPipeline_from_ckpt(cls, pretrained_model_link_or_path, **kwargs):
+
+def pipe_from_ckpt(cls, pretrained_model_link_or_path, **kwargs):
     from pathlib import Path
+    from huggingface_hub import hf_hub_download
     from diffusers.pipelines.stable_diffusion.convert_from_ckpt import download_from_original_stable_diffusion_ckpt
     from diffusers.utils import (
         DIFFUSERS_CACHE,
@@ -72,6 +81,8 @@ def StableDiffusionPipeline_from_ckpt(cls, pretrained_model_link_or_path, **kwar
     upcast_attention = kwargs.pop("upcast_attention", None)
     load_safety_checker = kwargs.pop("load_safety_checker", True)
     prediction_type = kwargs.pop("prediction_type", None)
+    text_encoder = kwargs.pop("text_encoder", None)
+    tokenizer = kwargs.pop("tokenizer", None)
 
     torch_dtype = kwargs.pop("torch_dtype", None)
 
@@ -153,6 +164,8 @@ def StableDiffusionPipeline_from_ckpt(cls, pretrained_model_link_or_path, **kwar
         upcast_attention=upcast_attention,
         load_safety_checker=load_safety_checker,
         prediction_type=prediction_type,
+        text_encoder=text_encoder,
+        tokenizer=tokenizer,
     )
 
     if torch_dtype is not None:
@@ -164,7 +177,7 @@ def StableDiffusionPipeline_from_ckpt(cls, pretrained_model_link_or_path, **kwar
 # ----- load VAE weight from safetensors -----
 
 
-def load_VAE_weights(vae_path, device, samplesize, modelconfig):
+def load_vae_weights(vae_path, device, samplesize, modelconfig):
     from io import BytesIO
     from omegaconf import OmegaConf
     from safetensors.torch import load_file
@@ -197,10 +210,3 @@ def load_VAE_weights(vae_path, device, samplesize, modelconfig):
         vae.load_state_dict(converted_vae_checkpoint)
         return vae
     return None
-
-
-# ----- load LoRA weight from safetensors -----
-
-
-def load_LoRA_weights():
-    pass

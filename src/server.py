@@ -14,6 +14,7 @@ import threading
 from http import HTTPStatus
 from datetime import datetime
 
+from colorama import Fore
 from websockets.server import serve
 
 sys.path.append(os.path.abspath("src"))
@@ -29,6 +30,7 @@ records = {} # 'server.log' for previous seasons
 
 def render(data):
     return md.create_image(
+        data["checkpoint"],
         data["scheduler"],
         data["prompt"],
         data["negative"],
@@ -36,9 +38,8 @@ def render(data):
         data["height"],
         data["seed"],
         data["steps"],
-        data["cfg"],
+        data["guidance"],
         data["strength"],
-        data["lora"],
         data["image"],
         data["mask"],
         data["facefix"],
@@ -61,29 +62,20 @@ async def echo(websocket):
                     "checkpoints": md.ctx.checkpoints
                 }))
 
-            case "GET": # get metadata from server by record id
-                threading.current_thread().name = val
-                if val in records:
-                    await websocket.send( json.dumps(records[val]) )
-                    log.info("record sent")
-                else:
-                    await websocket.send("")
-                    log.error("record not found")
-
             case "NEW": # create image
                 idx = random.randrange(1000, 9999)
                 while idx in records:
                     idx = random.randrange(1000, 9999)
                 
                 threading.current_thread().name = idx
-                log.info("<- [%s]", idx)
+                log.info(Fore.CYAN + "<- [%s]", idx)
 
                 try:
                     arr = render(json.loads(val))
                 except KeyboardInterrupt:
                     await websocket.send("")
                     md.clear_cache()
-                    log.info("stopped.")
+                    log.info(Fore.MAGENTA + "terminated.")
                     return
                 
                 if arr == None:
@@ -98,14 +90,15 @@ async def echo(websocket):
                         "base64":   arr[1]
                     }))
                 del arr
-                
-            case "MOD": # change/reload checkpoint
-                threading.current_thread().name = "CKPT"
-                try:
-                    md.update_checkpoint(val)
-                    await websocket.send(val)
-                except:
+
+            case "GET": # get metadata from server by record id
+                threading.current_thread().name = val
+                if val in records:
+                    await websocket.send( json.dumps(records[val]) )
+                    log.info("record sent")
+                else:
                     await websocket.send("")
+                    log.error("record not found")
 
 
 def log_file(idx, data):
@@ -131,8 +124,8 @@ async def request_handler(path, request_headers):
 
 
 async def main():
-    log.info(f"running server at http://{ HOST }:{ PORT }")
-    log.info("[CTRL+C] terminate running task")
+    log.info("running server at " + Fore.CYAN + f"http://{ HOST }:{ PORT }")
+    log.info("[CTRL + C] terminate running task")
     try:
         server = await serve(
             echo, HOST, PORT,

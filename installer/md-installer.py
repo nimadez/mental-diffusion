@@ -1,6 +1,6 @@
 #
 # Mental Diffusion Installer
-# Version 0.0.6
+# Version 0.0.7
 #
 import os
 import sys
@@ -16,14 +16,16 @@ PIPGET = "https://bootstrap.pypa.io/get-pip.py"
 EXCLUDE = ["models", "python_embed", "gfpgan", ".output"]
 
 config_json = """{
+    "use_CPU": 0,
+    "use_VAE": 1,
+    "use_proxy": 0,
+    "proxy": "http://127.0.0.1:8118",
+
+    "checkpoint": "deliberate_v2",
     "checkpoints_root": "models/checkpoints/",
     "vae": "models/vae/vae-ft-mse-840000-ema-pruned.safetensors",
     "gfpgan": "models/gfpgan/GFPGANv1.4.pth",
-    "realesrgan": "models/upscale/RealESRGAN_x4plus.pth",
-    
-    "checkpoint": "deliberate_v2",
-    "use_CPU": 0,
-    "use_VAE": 1
+    "realesrgan": "models/realesrgan/RealESRGAN_x4plus.pth"
 }
 """
 
@@ -47,21 +49,22 @@ def main():
     DIR_DST_CONFIG = cwd + '/mental-diffusion/config.json'
     DIR_DST_BACKUP = cwd + '/mental-diffusion/config.json.bkp'
 
-    print('----------------------------------')
-    print(' Mental Diffusion Installer 0.0.6')
-    print('----------------------------------')
+    print('-----------------------------------')
+    print(' Mental Diffusion Installer 0.0.71')
+    print('-----------------------------------')
     opt_start = input(" Begin installation (Y/N)? ").upper()
-    if opt_start == "N":
+    if opt_start != "Y":
         sys.exit(0)
 
 
     # backup user data
+
     bkp_config = None
     if os.path.exists(DIR_DST_CONFIG):
         print("\nBacking up user data...")
         with open(DIR_DST_CONFIG, "r") as f:
             bkp_config = f.read()
-        print("Backup file created.")
+        print("Backup data created.")
 
     # clear previous MD installation
     if os.path.exists(DIR_DST):
@@ -74,6 +77,8 @@ def main():
                     shutil.rmtree(item, ignore_errors=True)
 
 
+    # download repository
+
     print('\nDownloading mental-diffusion repository...')
     downloadZip(MDZIP, DIR_DST)
     for f in os.listdir(DIR_SRC):
@@ -81,6 +86,8 @@ def main():
     os.rmdir(DIR_SRC)
     print('Done\n')
 
+
+    # setup config and directories
 
     print("Setting up config files...")
     with open(DIR_DST_CONFIG, "w") as f:
@@ -95,14 +102,20 @@ def main():
     os.chdir(DIR_DST)
     if not os.path.exists(DIR_DST + "/.output"):
         os.makedirs(".output")
-    if not os.path.exists(DIR_DST + "/models"):
+    if not os.path.exists(DIR_DST + "/models/checkpoints"):
         os.makedirs("models/checkpoints")
+    if not os.path.exists(DIR_DST + "/models/realesrgan"):
+        os.makedirs("models/realesrgan")
+    if not os.path.exists(DIR_DST + "/models/gfpgan"):
         os.makedirs("models/gfpgan")
+    if not os.path.exists(DIR_DST + "/models/loras"):
         os.makedirs("models/loras")
-        os.makedirs("models/upscale")
+    if not os.path.exists(DIR_DST + "/models/vae"):
         os.makedirs("models/vae")
     print("Done\n")
     
+
+    # install python and dependencies
 
     if not os.path.exists(DIR_DST_PYTHON):
         print('Downloading Python 3.10.11 embeddable package...')
@@ -113,27 +126,18 @@ def main():
     if not os.path.exists(DIR_DST_PYTHON + "/get-pip.py"):
         print('Downloading Python PIP...')
         downloadBin(PIPGET, "get-pip.py")
-        os.system("python get-pip.py")
-
         with open("python310._pth", "w") as f:
             f.write(importsite)
-        print("Done\n")
-
-        print('Installing Python packages...')
-        packageInstaller()
-        print("Done\n")
-
-
-    opt_force = input(" Force-check installed Python packages (Y/N)? ").upper()
-    if opt_force == "Y":
-        print('Checking Python packages...')
-        packageInstaller()
-        print("Done\n")
+    
+    print('Installing Python packages...')
+    os.system("python get-pip.py")
+    packageInstaller()
+    print("Done\n")
 
 
 def packageInstaller():
     os.system("python -m pip install --no-warn-script-location accelerate==0.20.3")
-    os.system("python -m pip install --no-warn-script-location diffusers==0.17.1")
+    os.system("python -m pip install --no-warn-script-location diffusers==0.18.1")
     os.system("python -m pip install --no-warn-script-location torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118")
     os.system("python -m pip install --no-warn-script-location transformers==4.30.0")
     os.system("python -m pip install --no-warn-script-location omegaconf==2.3.0")

@@ -1,5 +1,5 @@
 #
-# mental-diffusion diffusers
+# mental-diffusion's core
 #
 import logging
 log = logging.getLogger("mental-diffusion")
@@ -7,6 +7,7 @@ log = logging.getLogger("mental-diffusion")
 import os
 import sys
 import json
+from gc import collect
 
 from numpy import array as np_array
 from numpy import uint8 as np_uint8
@@ -19,6 +20,7 @@ from torch import (
     Generator
 )
 
+from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
@@ -31,17 +33,17 @@ from diffusers import (
     EulerAncestralDiscreteScheduler
 )
 
-from realesrgan import RealESRGANer
 from gfpgan import GFPGANer
+from realesrgan import RealESRGANer
+from basicsr.archs.rrdbnet_arch import RRDBNet
 
 import utils
 
 
 class Context():
     def __init__(self):
-        self.version = "0.1.4"
+        self.version = "0.1.6"
 
-        self.network = True
         self.device = "cpu"
         self.dtype = None
 
@@ -51,12 +53,12 @@ class Context():
 
         self.checkpoint_name = ""
         self.scheduler_name = ""
-        self.pipe_name = ""
 
         self.pipe = None
-        self.vae = None
-        self.realesrgan = None
+        self.pipe_name = ""
+
         self.gfpgan = None
+        self.realesrgan = None
 
         self.use_CPU = 0
         self.use_VAE = 0
@@ -64,13 +66,13 @@ class Context():
 ctx = Context()
 
 
-def preload():
+def preload(config):
     clear_cache()
-    device_setup()
-    ctx.network = utils.defineNetwork()
 
-    with open("./config.json", "r") as f:
-        config = json.loads(f.read())
+    ctx.use_CPU = config["use_CPU"]
+    ctx.use_VAE = config["use_VAE"]
+    ctx.checkpoint_name = config["checkpoint"]
+    ctx.scheduler_name = "euler_anc" # ddpm, ddim, pndm, lms, euler, euler_anc
 
     ctx.configs = [
         "configs/v1-inference.yaml",
@@ -85,94 +87,69 @@ def preload():
         "realesrgan": config["realesrgan"]
     }
 
+    if not os.path.exists(config["checkpoints_root"]):
+        print("No checkpoint directory found, unable to start the mental-diffusion.\nHave you set up the checkpoints_root in config.json file?")
+        sys.exit(0)
+
     for ckpt in os.listdir(config["checkpoints_root"]):
         if ckpt.endswith(".safetensors"):
             ctx.checkpoints.append(os.path.splitext( os.path.basename(ckpt) )[0])
 
-    ctx.checkpoint_name = config["checkpoint"]
-    ctx.scheduler_name = "euler_anc" # ddpm, ddim, pndm, lms, euler, euler_anc
-    ctx.use_CPU = int(config["use_CPU"])
-    ctx.use_VAE = int(config["use_VAE"])
-    del config
-
     if len(ctx.checkpoints) == 0:
-        log.error("No checkpoints found, unable to start the mental-diffusion.\nHave you set up the checkpoints path in config.json file?")
-        clear_cache()
+        print("No checkpoints found, unable to start the mental-diffusion.\nHave you set up the checkpoints path in config.json file?")
         sys.exit(0)
 
     if not os.path.exists(ctx.paths["checkpoints_root"] + ctx.checkpoint_name + ".safetensors"):
-        log.error("Default checkpoint does not exist, unable to start the mental-diffusion.\nHave you set up the default checkpoint in config.json file?")
-        clear_cache()
+        print("Default checkpoint does not exist, unable to start the mental-diffusion.\nHave you set up the default checkpoint in config.json file?")
         sys.exit(0)
 
     if ctx.use_VAE == 1 and not os.path.exists(ctx.paths["vae"]):
-        log.error("Custom VAE is enabled, but no VAE found, unable to start the mental-diffusion.\nHave you set up the VAE in config.json file?")
-        clear_cache()
+        print("Custom VAE is enabled, but no VAE found, unable to start the mental-diffusion.\nHave you set up the VAE in config.json file?")
         sys.exit(0)
-
+        
     if not os.path.exists(ctx.paths["gfpgan"]):
-        log.error("No GFPGAN found, unable to start the mental-diffusion.\nHave you set up the GFPGAN in config.json file?")
-        clear_cache()
+        print("No GFPGAN found, unable to start the mental-diffusion.\nHave you set up the GFPGAN in config.json file?")
         sys.exit(0)
 
     if not os.path.exists(ctx.paths["realesrgan"]):
-        log.error("No ESRGAN found, unable to start the mental-diffusion.\nHave you set up the ESRGAN in config.json file?")
-        clear_cache()
+        print("No Real-ESRGAN found, unable to start the mental-diffusion.\nHave you set up the Real-ESRGAN in config.json file?")
         sys.exit(0)
+
+    device_setup()
 
 
 def init():
-    load_checkpoint(ctx.checkpoint_name)
-    set_optimizer()
-    checkpoint_to_device()
-    load_VAE()
-    initFilters()
     log.info("initialized.")
-
-
-def initFilters():
-    from basicsr.archs.rrdbnet_arch import RRDBNet
-    ctx.realesrgan = RealESRGANer(
-        scale = 4, # def netscale
-        model_path = ctx.paths["realesrgan"],
-        dni_weight = None,
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4), # (x4 RRDBNet model)
-        tile = 256, # ~512
-        tile_pad = 10,
-        pre_pad = 0,
-        half = "fp16",
-        gpu_id = 0)
-    ctx.gfpgan = GFPGANer(
-        model_path = ctx.paths["gfpgan"],
-        upscale = 1, # def: 2
-        arch = "clean",
-        channel_multiplier = 2,
-        bg_upsampler = None)
-    log.info("filters ready")
 
 
 def device_setup():
     ctx.dtype = float16
     ctx.device = "cuda" if cuda.is_available() else "cpu"
-    if ctx.use_CPU == 1:
+    if ctx.use_CPU == 1 or ctx.device == "cpu":
         ctx.device = "cpu"
         ctx.dtype = None
 
 
 def load_checkpoint(name):
-    modelpath = ctx.paths["checkpoints_root"] + name + ".safetensors"
+    if name == "null": # to use the current checkpoint (for headless)
+        name = ctx.checkpoint_name
+
+    if ctx.pipe and ctx.checkpoint_name == name:
+        return # update checkpoint or use the current
+
     log.info(f"loading checkpoint [{ name }] ...")
-    logging.getLogger("diffusers").setLevel(logging.ERROR) # hide safety message
 
     if not "inpainting" in name.lower():
         cfg = ctx.configs[0] # v1-inference
     else:
         cfg = ctx.configs[1] # v1-inpainting-inference
 
+    logging.getLogger("diffusers").setLevel(logging.ERROR) # hide safety message
+    sys.stdout = open(os.devnull, 'w') # remove "global_step key not found" warning
     ctx.checkpoint_name = name
-    ctx.pipe = utils.StableDiffusionPipeline_from_ckpt(
+    ctx.pipe = utils.pipe_from_ckpt(
         StableDiffusionPipeline,
-        modelpath,
+        ctx.paths["checkpoints_root"] + name + ".safetensors",
         original_config_file = cfg,
         local_files_only = True,
         use_safetensors = True,
@@ -184,52 +161,33 @@ def load_checkpoint(name):
         load_safety_checker = False)
     ctx.pipe.requires_safety_checker = False
     ctx.pipe.safety_checker = None
-    log.info("prepared checkpoint for device")
-
-
-def update_checkpoint(name):
-    if not name in ctx.checkpoints:
-        log.error("checkpoint [%s] does not exist", name)
-        return
-
-    try:
-        clear_pipe()
-        load_checkpoint(name)
-        set_optimizer()
-        checkpoint_to_device()
-        if ctx.vae:
-            ctx.pipe.vae = ctx.vae
-        log.info("checkpoint updated to [%s]", name)
-    except:
-        log.error("unable to load checkpoint [%s]", name)
-    
-
-def checkpoint_to_device():
     ctx.pipe.to(ctx.device, ctx.dtype)
-    log.info("checkpoint loaded to device")
+    sys.stdout = sys.__stdout__
+
+    load_vae(cfg)
+    pipe_optimizer()
+    log.info("checkpoint ready.")
 
 
-def load_VAE(modelconfig = "configs/v1-inference.yaml"):
-    if ctx.use_VAE == 0:
-        return
-        
-    ctx.vae = utils.load_VAE_weights(ctx.paths["vae"], ctx.device, 512, modelconfig)
-    if ctx.vae:
-        ctx.pipe.vae = ctx.vae
+def load_vae(config):
+    if ctx.use_VAE == 0: return
+
+    ctx.pipe.vae = utils.load_vae_weights(ctx.paths["vae"], ctx.device, 512, config)
+    if ctx.pipe.vae is not None:
         ctx.pipe.vae.to(ctx.device, ctx.dtype)
-        log.info("vae loaded to device")
+        log.info("vae loaded")
     else:
         log.error("unable to load vae")
 
 
-def set_optimizer():
-    from diffusers.models.attention_processor import AttnProcessor2_0
-    ctx.pipe.enable_model_cpu_offload()     # memory optimization
-    ctx.pipe.enable_attention_slicing(1)    # low vram usage
-    ctx.pipe.enable_vae_slicing()           # using torch 2
-    ctx.pipe.vae.decoder.mid_block.attentions[0]._use_2_0_attn = True
+def pipe_optimizer():
     ctx.pipe.unet.set_attn_processor(AttnProcessor2_0())
-    log.info("set optimizations")
+    ctx.pipe.vae.decoder.mid_block.attentions[0]._use_2_0_attn = True
+    if ctx.device != "cpu":
+        ctx.pipe.enable_model_cpu_offload()     # memory optimization
+        ctx.pipe.enable_attention_slicing(1)    # low vram usage (auto|max|8)
+        ctx.pipe.enable_vae_slicing()           # sliced VAE decode for larger batches
+        ctx.pipe.enable_vae_tiling()            # tiled VAE decode/encode for large images
 
 
 def set_scheduler(name):
@@ -252,60 +210,26 @@ def set_scheduler(name):
     log.info(f"scheduler [{name}]")
 
 
-def inference_gfpgan(initimage, width=512, height=512, upscale=2):
-    initimage = initimage.resize((width, height))
-    initimage = initimage.convert("RGB")
-    initimage = np_array(initimage, dtype=np_uint8)[..., ::-1]
-
-    _, _, img = ctx.gfpgan.enhance(
-        initimage,
-        has_aligned = False,
-        only_center_face = False,
-        paste_back = True,
-        weight = 0.5)
-
-    img = img[:, :, ::-1]
-    img = Image.fromarray(img)
-    del initimage
-    return img
-
-
-def inference_realesrgan(initimage, width=512, height=512, scale=4):
-    initimage = initimage.resize((width, height))
-    initimage = initimage.convert("RGB")
-    initimage = np_array(initimage, dtype=np_uint8)[..., ::-1]
-
-    img, _ = ctx.realesrgan.enhance(initimage, outscale=scale)
-
-    img = img[:, :, ::-1]
-    img = Image.fromarray(img)
-    del initimage
-    return img
-
-
-def generate_image(
+def inference_stablediffusion(
     prompt, negative,
     width, height,
-    seed, steps, cfg, strength,
-    lora,
-    initimage, imagemask):
+    seed, steps, guidance, strength,
+    initimage, maskimage):
 
     generator = Generator(ctx.device).manual_seed(seed)
     log.info(f"seed [{ seed }]")
 
-    images = []
-    pipe_img2img = None
-    pipe_inpainting = None
+    img = None
 
     if initimage == "":
         ctx.pipe_name = "txt2img"
-        log.info("using [txt2img] pipeline...")
-        images = ctx.pipe(
+        log.info("pipeline [txt2img] ...")
+        img = ctx.pipe(
             prompt = prompt,
             width = width,
             height = height,
             num_inference_steps = steps,
-            guidance_scale = cfg,
+            guidance_scale = guidance,
             negative_prompt = negative,
             num_images_per_prompt = 1,
             eta = 0.0, # only applies to DDIMScheduler
@@ -317,11 +241,12 @@ def generate_image(
             return_dict = True,
             callback = None,
             callback_steps = 1,
-            cross_attention_kwargs = None)
-    elif initimage != "" and imagemask == "":
+            cross_attention_kwargs = None,
+            guidance_rescale = 0.7)[0][0] #def: 0.7
+    elif initimage != "" and maskimage == "":
         ctx.pipe_name = "img2img"
-        log.info("using [img2img] pipeline...")
-        pipe_img2img = StableDiffusionImg2ImgPipeline(
+        log.info("pipeline [img2img] ...")
+        img = StableDiffusionImg2ImgPipeline(
             vae = ctx.pipe.vae,
             text_encoder = ctx.pipe.text_encoder,
             tokenizer = ctx.pipe.tokenizer,
@@ -330,28 +255,27 @@ def generate_image(
             safety_checker = None,
             feature_extractor = None,
             requires_safety_checker = False,
-        )
-        images = pipe_img2img(
-            prompt = prompt,
-            image = initimage,
-            strength = strength,
-            num_inference_steps = steps,
-            guidance_scale = cfg,
-            negative_prompt = negative,
-            num_images_per_prompt = 1,
-            eta = 0.0,
-            generator = generator,
-            prompt_embeds = None,
-            negative_prompt_embeds = None,
-            output_type = "pil",
-            return_dict = True,
-            callback = None,
-            callback_steps = 1,
-            cross_attention_kwargs = None)
-    elif initimage != "" and imagemask != "":
+            )(
+                prompt = prompt,
+                image = initimage,
+                strength = strength,
+                num_inference_steps = steps,
+                guidance_scale = guidance,
+                negative_prompt = negative,
+                num_images_per_prompt = 1,
+                eta = 0.0,
+                generator = generator,
+                prompt_embeds = None,
+                negative_prompt_embeds = None,
+                output_type = "pil",
+                return_dict = True,
+                callback = None,
+                callback_steps = 1,
+                cross_attention_kwargs = None)[0][0]
+    elif initimage != "" and maskimage != "":
         ctx.pipe_name = "inpaint"
-        log.info("using [inpaint] pipeline...")
-        pipe_inpainting = StableDiffusionInpaintPipeline(
+        log.info("pipeline [inpaint] ...")
+        img = StableDiffusionInpaintPipeline(
             vae = ctx.pipe.vae,
             text_encoder = ctx.pipe.text_encoder,
             tokenizer = ctx.pipe.tokenizer,
@@ -360,87 +284,126 @@ def generate_image(
             safety_checker = None,
             feature_extractor = None,
             requires_safety_checker = False,
-        )
-        images = pipe_inpainting(
-            prompt = prompt,
-            image = initimage,
-            mask_image = imagemask,
-            width = width,
-            height = height,
-            strength = strength,
-            num_inference_steps = steps,
-            guidance_scale = cfg,
-            negative_prompt = negative,
-            num_images_per_prompt = 1,
-            eta = 0.0,
-            generator = generator,
-            latents = None,
-            prompt_embeds = None,
-            negative_prompt_embeds = None,
-            output_type = "pil",
-            return_dict = True,
-            callback = None,
-            callback_steps = 1,
-            cross_attention_kwargs = None)
+            )(
+                prompt = prompt,
+                image = initimage,
+                mask_image = maskimage,
+                width = width,
+                height = height,
+                strength = strength,
+                num_inference_steps = steps,
+                guidance_scale = guidance,
+                negative_prompt = negative,
+                num_images_per_prompt = 1,
+                eta = 0.0,
+                generator = generator,
+                latents = None,
+                prompt_embeds = None,
+                negative_prompt_embeds = None,
+                output_type = "pil",
+                return_dict = True,
+                callback = None,
+                callback_steps = 1,
+                cross_attention_kwargs = None)[0][0]
 
-    img = images[0][0]
-    del images
     del initimage
-    del imagemask
-    del pipe_img2img
-    del pipe_inpainting
+    del maskimage
     del generator
-    log.info("image generated successfully.")
+    log.info("image generated.")
     return img
 
 
+def inference_gfpgan(image, width=512, height=512, upscale=2):
+    image = image.resize((width, height))
+    image = image.convert("RGB")
+    image = np_array(image, dtype=np_uint8)[..., ::-1]
+
+    if ctx.gfpgan == None:
+        ctx.gfpgan = GFPGANer(
+            model_path = ctx.paths["gfpgan"],
+            upscale = 1, # def: 2
+            arch = "clean",
+            channel_multiplier = 2,
+            bg_upsampler = None)
+        
+    _, _, img = ctx.gfpgan.enhance(
+            image,
+            has_aligned = False,
+            only_center_face = False,
+            paste_back = True,
+            weight = 0.5)
+
+    img = img[:, :, ::-1]
+    img = Image.fromarray(img)
+    del image
+    return img
+
+
+def inference_realesrgan(image, width=512, height=512, scale=4):
+    image = image.resize((width, height))
+    image = image.convert("RGB")
+    image = np_array(image, dtype=np_uint8)[..., ::-1]
+
+    if ctx.realesrgan == None:
+        ctx.realesrgan = RealESRGANer(
+            scale = 4, # def netscale
+            model_path = ctx.paths["realesrgan"],
+            dni_weight = None,
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4), # (x4 RRDBNet model)
+            tile = 256, # ~512
+            tile_pad = 10,
+            pre_pad = 0,
+            half = "fp16",
+            gpu_id = 0)
+
+    img, _ = ctx.realesrgan.enhance(image, outscale=scale)
+
+    img = img[:, :, ::-1]
+    img = Image.fromarray(img)
+    del image
+    return img
+
+
+def prepare_input_image(img, width, height, label):
+    if img.startswith('data:image/png'):
+        img = utils.base64Decode(img)
+        log.info(f"{ label } image [base64]")
+    elif img.endswith('.png') or img.endswith('.PNG'): # filepath
+        log.info(f"{ label } image [{ img }]")
+        img = Image.open(img)
+    else:
+        log.error(f"bad { label } image [{ img[:50] }]")
+        return None
+    img = img.resize((width, height))
+    return img.convert("RGB")
+
+
 def create_image(
-    scheduler,
+    checkpoint, scheduler,
     prompt, negative,
     width, height,
-    seed, steps, cfg, strength,
-    lora,
-    initimage, imagemask,
+    seed, steps, guidance, strength,
+    initimage, maskimage,
     facefix, upscale,
     savefile, onefile, outpath, filename):
 
+    load_checkpoint(checkpoint)
     set_scheduler(scheduler)
-    
-    if initimage:
-        if initimage.startswith('data:image/png'): # from base64
-            initimage = utils.base64Decode(initimage)
-            log.info("initial image [base64]")
-        elif initimage.endswith('.png') or initimage.endswith('.PNG'): # file path
-            log.info(f"initial image [{ initimage }]")
-            initimage = Image.open(initimage)
-        else:
-            log.error(f"bad initial image [{ initimage[:50] }]") # bad input
-            return None
-        initimage = initimage.resize((width, height))
-        initimage = initimage.convert("RGB")
 
-    if imagemask:
-        if imagemask.startswith('data:image/png'): # from base64
-            imagemask = utils.base64Decode(imagemask)
-            log.info("image mask [base64]")
-        elif imagemask.endswith('png') or imagemask.endswith('PNG'): # file path
-            log.info(f"image mask [{ imagemask }]")
-            imagemask = Image.open(imagemask)
-        else:
-            log.error(f"bad image mask [{ imagemask[:50] }]") # bad input
-            return None
-        imagemask = imagemask.resize((width, height))
-        imagemask = imagemask.convert("RGB")
+    if initimage:
+        initimage = prepare_input_image(initimage, int(width), int(height), "init")
+
+    if maskimage:
+        maskimage = prepare_input_image(maskimage, int(width), int(height), "mask")
             
-    img = generate_image(
+    img = inference_stablediffusion(
         prompt, negative,
         int(width), int(height),
-        int(seed), int(steps), float(cfg), float(strength),
-        float(lora),
-        initimage, imagemask)
+        int(seed), int(steps), float(guidance), float(strength),
+        initimage, maskimage)
 
     del initimage
-    del imagemask
+    del maskimage
 
     metadict = {
         "version": f"MD { ctx.version }",
@@ -453,9 +416,8 @@ def create_image(
         "height": height,
         "seed": seed,
         "steps": steps,
-        "cfg": cfg,
+        "guidance": guidance,
         "strength": strength,
-        "lora": lora,
         "image": "null",
         "mask": "null",
         "facefix": facefix,
@@ -479,32 +441,32 @@ def create_image(
         log.info(f"image saved to { savepath }.png")
 
     if facefix:
-        log.info("apply filter [gfpgan]...")
         img = inference_gfpgan(img, width=width, height=height, upscale=1)
+        log.info("filter [gfpgan] applied.")
         if savefile and not onefile:
             img.save(f"{ savepath }_ff.png", pnginfo=metadata)
             log.info(f"image saved to { savepath }_ff.png")
 
+    out_base64 = utils.base64Encode(img, "png")
+
     if upscale:
-        log.info("apply filter [realesrgan 4x]...")
         img = inference_realesrgan(img, width=width, height=height, scale=4)
+        log.info("filter [realesrgan 4x] applied.")
         if savefile and not onefile:
-            img.save(f"{ savepath }_up.png", pnginfo=metadata)
-            log.info(f"image saved to { savepath }_up.png")
+            img.save(f"{ savepath }_4x.png", pnginfo=metadata)
+            log.info(f"image saved to { savepath }_4x.png")
 
     if savefile and onefile:
         img.save(f"{ savepath }.png", pnginfo=metadata)
         log.info(f"image saved to { savepath }.png")
 
-    out_base64 = utils.base64Encode(img, "png")
-
     del img
     del metadata
+    clear_cache()
     log.info("done")
     return [ metadict, out_base64 ]
 
 
-from gc import collect
 def clear_cache():
     collect()
     if cuda.is_available():
@@ -514,4 +476,6 @@ def clear_cache():
 def clear_pipe():
     if ctx.pipe:
         del ctx.pipe
+    del ctx.gfpgan
+    del ctx.realesrgan
     clear_cache()

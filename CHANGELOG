@@ -1,9 +1,25 @@
 All notable changes to this project will be documented in this file,
 UIX improvement and code management is not included in this file.
 
+[0.1.6]
+- 
+
+[0.1.5]
+- update diffusers to patch 0.18.1
+- CPU is now supported and working
+- core revision, faster startup time and webui access
+- major performance gain
+- no more preloads, everything is built as you progress
+- cfg renamed to guidance (guidance scale)
+- config.json updated
+- add proxy support for restricted countries
+
 [0.1.4]
-- add searchable prompt styling
-- more tests, improvements and bug fixes
+- update diffusers to 0.18.0
+- new styles
+- revert mask painting, mask is a tool now
+- mask image supports drag and drop
+- upscaled image save to file only (not returned to webui)
 - code cleanup
 
 [0.1.3]

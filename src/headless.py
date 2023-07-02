@@ -38,7 +38,7 @@ def main(args):
         help='show this help message and exit')
 
     parser.add_argument(
-        '-g', '--get',
+        '-get', '--get',
         type = int,
         default = 0,
         help = "fetch data from server by record id (int)"
@@ -49,6 +49,12 @@ def main(args):
         type = int,
         default = 1,
         help = "number of images to render (def: 1)"
+    )
+    parser.add_argument(
+        '-ck', '--checkpoint',
+        type = str,
+        default = "null",
+        help = "set checkpoint by file name, null = default checkpoint"
     )
     parser.add_argument(
         '-sc', '--scheduler',
@@ -65,7 +71,7 @@ def main(args):
     parser.add_argument(
         '-n', '--negative',
         type = str,
-        default = "deformed, distorted, disfigured, poorly drawn, poorly drawn hands, poorly drawn face, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, mutated hands and fingers, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, text, label, word, malformed hands, out of focus",
+        default = "deformed, distorted, disfigured, poorly drawn, poorly drawn hands, poorly drawn face, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, mutated hands and fingers, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, malformed hands, out of focus",
         help = "negative prompt input"
     )
     parser.add_argument(
@@ -93,7 +99,7 @@ def main(args):
         help = "steps from 10 to 50, 20-25 is good enough (def: 20)"
     )
     parser.add_argument(
-        '-c', '--cfg',
+        '-g', '--guidance',
         type = float,
         default = 7.5,
         help = "guidance scale, how closely linked to the prompt (def: 7.5)"
@@ -103,12 +109,6 @@ def main(args):
         type = float,
         default = 0.5,
         help = "how much respect the final image should pay to the original (def: 0.5)"
-    )
-    parser.add_argument(
-        '-l', '--lora',
-        type = float,
-        default = 0.0,
-        help = "TODO (def: 0.0)"
     )
     parser.add_argument(
         '-i', '--image',
@@ -160,12 +160,6 @@ def main(args):
     )
 
     parser.add_argument(
-        '-ckpt', '--ckpt',
-        type = str,
-        default = "null",
-        help = "change/reload checkpoint by name"
-    )
-    parser.add_argument(
         '-meta', '--metadata',
         type = str,
         default = "null",
@@ -184,10 +178,6 @@ def main(args):
         ws_connect("GET", args.get)
         return
 
-    if args.ckpt != "null":
-        ws_connect("MOD", args.ckpt)
-        return
-
     if args.metadata != "null":
         get_metadata(args.metadata)
         return
@@ -204,10 +194,11 @@ def main(args):
     if args.seed == 0:
         args.seed = random.randrange(0, 4294967295)
 
-    filename = f"{ args.filename }_{ args.seed }_{ args.steps }_{ args.cfg }"
+    filename = f"{ args.filename }_{ args.seed }_{ args.steps }_{ args.guidance }"
 
     # create image
     data = {
+        'checkpoint':   args.checkpoint,
         'scheduler':    args.scheduler,
         'prompt':       args.prompt,
         'negative':     args.negative,
@@ -215,9 +206,8 @@ def main(args):
         'height':       args.height,
         'seed':         args.seed,
         'steps':        args.steps,
-        'cfg':          args.cfg,
+        'guidance':     args.guidance,
         'strength':     args.strength,
-        'lora':         args.lora,
         'image':        args.image,
         'mask':         args.mask,
         'facefix':      args.facefix,
