@@ -1,0 +1,73 @@
+All notable changes to this project will be documented in this file,
+UIX improvement and code management is not included in this file.
+
+[0.1.4]
+- add searchable prompt styling
+- more tests, improvements and bug fixes
+- code cleanup
+
+[0.1.3]
+- massive webui update, improve the code and uix
+- webui is now available online and offline
+- fix md unable to load new checkpoint
+- md scan directory for safetensors, config.json updated
+- improve readability of metadata pool tags
+- add render pipeline to PNG metadata
+- add batch rendering to both webui and headless
+- rewrite and improve image drag and drop
+
+[0.1.2]
+- add brush softness
+- add keyboard shortcuts
+- canvas pan and zoom are now global
+- inpaint rework, mask painting is a lot easier, just mask and render
+- webui pipeline revert to manual (in case you want to keep the mask but do img2img)
+- a lot of webui bug fixes and minor improvements, shaping up the base
+- add option to save the one last file only
+- overall workflow improvements
+
+[0.1.1]
+- debugging and optimization
+- add mouse wheel zoom
+- add server max_size limit, fix upscale-base64 error
+- limit width and height to divisible by 8
+- add custom default checkpoint to config.json
+- installer preserve user config.json (create backup before update)
+- automatic canvas resize on image drop and load
+- config.json checkpoints are fully optional now
+- new outpainting, enjoy!
+- new smooth brushes
+- new undo/redo for painting only
+
+[0.1.0]
+- update diffusers to 0.17.1
+- fix inpainting checkpoint loader
+- add metadata pool
+- add server connection status
+- add line drawing tool
+- add canvas editor
+- debugging web interface
+
+[0.0.9]
+- electron removed
+- you can directly use http://localhost:8011 to load the webui
+- server updated to websockets (remember to force-check python packages)
+- add support for more schedulers
+- update and fixed python requirements
+- fix the diffusers StableDiffusionPipeline.from_ckpt() not loading checkpoints when offline
+https://github.com/huggingface/diffusers/issues/3729
+
+[0.0.8]
+- update to diffusers 0.17.0 pip release
+- fix resizable interface
+- add python installer script
+- finish manual installation readme
+- add metadata extraction to headless
+- sort and arrange headless args
+- add multiple options to config.json
+- remove base64 data from server.log
+- fix seed rng to count more possible values
+- respect existing filenames
+- reduce server memory overhead
+- free up 2gb space by eliminating safety_checker (HF cache)
+- speed up the core and startup time
