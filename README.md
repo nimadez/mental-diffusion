@@ -176,15 +176,15 @@ curl -o md-installer.py https://raw.githubusercontent.com/nimadez/mental-diffusi
 ```
 curl https://bootstrap.pypa.io/get-pip.py -k --ssl-no-revoke -o get-pip.py
 python get-pip.py
-python -m pip install accelerate==0.20.3
-python -m pip install diffusers==0.18.1
 python -m pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-python -m pip install transformers==4.30.0
+python -m pip install accelerate==0.20.3
+python -m pip install diffusers==0.18.2
+python -m pip install transformers==4.30.2
 python -m pip install omegaconf==2.3.0
 python -m pip install safetensors==0.3.1
 python -m pip install realesrgan==0.3.0
 python -m pip install gfpgan==1.3.8
-python -m pip install websockets
+python -m pip install websockets==11.0.3
 
 git clone https://github.com/nimadez/mental-diffusion.git
 run.bat       -> start server (url: http://localhost:8011)
@@ -201,7 +201,7 @@ To prevent re-downloading huggingface cache, add HF cache directory to your envi
 ```
 
 ## Models
-Checkpoints:<br>
+Some popular checkpoints:<br>
 [v1-5-pruned-emaonly.safetensors](https://huggingface.co/runwayml/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.safetensors)<br>
 [sd-v1-5-inpainting.ckpt](https://huggingface.co/runwayml/stable-diffusion-inpainting/blob/main/sd-v1-5-inpainting.ckpt)<br>
 [Deliberate_v2.safetensors](https://huggingface.co/XpucT/Deliberate/blob/main/Deliberate_v2.safetensors)<br>
@@ -210,9 +210,12 @@ Checkpoints:<br>
 [Reliberate-inpainting.safetensors](https://huggingface.co/XpucT/Reliberate/blob/main/Reliberate-inpainting.safetensors)<br>
 [dreamlike-diffusion-1.0.safetensors](https://huggingface.co/dreamlike-art/dreamlike-diffusion-1.0/blob/main/dreamlike-diffusion-1.0.safetensors)<br>
 [dreamlike-photoreal-2.0.safetensors](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/blob/main/dreamlike-photoreal-2.0.safetensors)<br>
-VAE: [vae-ft-mse-840000-ema-pruned.safetensors](https://huggingface.co/stabilityai/sd-vae-ft-mse-original/blob/main/vae-ft-mse-840000-ema-pruned.safetensors) *(optional)*<br>
-GFPGAN: [GFPGANv1.4.pth](https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth) *(required)*<br>
-RealESRGAN: [RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth) *(required)*<br>
+Download at least one checkpoint to "*models/checkpoints*"
+
+[vae-ft-mse-840000-ema-pruned.safetensors](https://huggingface.co/stabilityai/sd-vae-ft-mse-original/blob/main/vae-ft-mse-840000-ema-pruned.safetensors) *(optional - to "*models/vae*")*<br>
+[GFPGANv1.4.pth](https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth) *(required - to "*models/gfpgan*")*<br>
+[RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth) *(required - to "*models/realesrgan*")*<br>
+
 - All **.ckpt** checkpoints converted to **.safetensors** *(security)*
 - All checkpoints converted to **fp16** *(smaller size, use [prune.py](https://github.com/nimadez/mental-diffusion/tree/main/scripts/prune.py))*
 - All inpainting checkpoints must have "inpainting" in their filename
@@ -221,12 +224,12 @@ RealESRGAN: [RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/relea
 
 <img src="media/backtothefuture.jpg?raw=true">
 
-> - I do not officially support any model
+> - I do not officially support any models
 > - Visit [Civitai.com](https://civitai.com/) for more SD 1.5 checkpoints
 
 ## Known Issues
 ```
-- Mental Diffusion is offline, if the internet access is interrupted,
+Mental Diffusion is offline, if the internet access is interrupted,
 if the connection is established, some data will be send and received
 when loading the checkpoint. (huggingface tries to compare files)
 ```
@@ -238,18 +241,18 @@ How to speed up rendering?
 - Open NVIDIA Control Panel, enable "Adaptive" power management mode
 
 Why does it give a connection error when loading the checkpoint?
-See known issues, enable "use_proxy" or disable network connection.
+Use VPN, enable "use_proxy" in config.json, or disable network
+connection. (after you have disabled your network connection, you
+should not set proxy to 1)
 
 Is SDXL supported?
 SDXL requires 12 GB of video memory, it is not currently supported.
-SDXL does not appear to be aimed at the open-source community.
 ```
 
 ## History
 ```
-0.1.6 -> back to the roots, major performance gain #1
+0.1.5 -> back to the roots, major performance gain #1
 
-- Rename project from "undiff" to mental-diffusion
 - Mental-diffusion started with "sdkit" and later evolved into diffusers
 - Created for my personal use
 ```
@@ -259,8 +262,8 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 
 ## Credits
 - [Hugging Face](https://huggingface.co/)
-- [Stability-AI](https://stability.ai/)
 - [RunwayML](https://runwayml.com/)
+- [Stability-AI](https://stability.ai/)
 - [PyTorch](https://pytorch.org/)
 - [Diffusers](https://github.com/huggingface/diffusers)
 - [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
@@ -269,4 +272,3 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [GFPGAN](https://github.com/TencentARC/GFPGAN)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
 - [prune.py](https://github.com/lopho/stable-diffusion-prune)
-- [Civitai](https://civitai.com/)

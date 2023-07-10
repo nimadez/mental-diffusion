@@ -3,28 +3,26 @@
 # Mental Diffusion
 # @nimadez
 #
-import os, sys, json
-from colorama import Fore, init
-init(autoreset=True)
+import os, sys, json, logging
+from colorama import Fore
 
 
-from warnings import filterwarnings
-filterwarnings("ignore", category=UserWarning) # disable gfpgan/esrgan torchvision warnings
-from transformers import logging as tlog # disable transformers warnings
-tlog.set_verbosity_error()
+sys.path.append(os.path.abspath("src"))
+__import__('colorama').init(autoreset=True)
+__import__('warnings').filterwarnings("ignore", category=UserWarning) # disable gfpgan/esrgan torchvision warnings
+__import__('transformers').logging.set_verbosity_error() # disable transformers warnings
 
-import logging
+
 LOG_FORMAT = "%(asctime)s.%(msecs)03d %(levelname)s %(threadName)s %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, datefmt="%X")
-
 
 with open("./config.json", "r") as f:
     config = json.loads(f.read())
 
-os.environ['DISABLE_TELEMETRY'] = "YES"         # disables telemetry collections
+os.environ['DISABLE_TELEMETRY'] = "YES"
 os.environ['HF_HUB_DISABLE_TELEMETRY'] = "1"
-os.environ['HF_HUB_OFFLINE'] = "1"
-os.environ['HF_DATASETS_OFFLINE'] = "1"         # disables all the network calls
+os.environ['HF_HUB_OFFLINE'] = "1" # disable the not-all network calls
+os.environ['HF_DATASETS_OFFLINE'] = "1"
 os.environ['TRANSFORMERS_OFFLINE'] = "1"
 proxy = "Direct"
 if config["use_proxy"] == 1:
@@ -33,21 +31,18 @@ if config["use_proxy"] == 1:
     proxy = config["proxy"]
 
 
-sys.path.append(os.path.abspath("src"))
-import md
-import server
-
-
 if __name__ == '__main__':
+    import md
+    import server
+    
     md.preload(config)
 
     from utils import mem_stats_total
-    from torch import __version__ as ver_troch
-    from diffusers import __version__ as ver_diffusers
     print(Fore.MAGENTA + "----------------------------------------")
     print(Fore.MAGENTA + f" Mental Diffusion { md.ctx.version }        @nimadez")
-    print(Fore.CYAN + f" Torch:        { ver_troch }")
-    print(Fore.CYAN + f" Diffusers:    { ver_diffusers }")
+    print(Fore.CYAN + f" Torch:        { __import__('torch').__version__ }")
+    print(Fore.CYAN + f" Transformers: { __import__('transformers').__version__ }")
+    print(Fore.CYAN + f" Diffusers:    { __import__('diffusers').__version__ }")
     print(Fore.CYAN + f" Device:       { str(md.ctx.device).upper() }")
     print(Fore.CYAN + f" Checkpoints:  { len(md.ctx.checkpoints) }")
     print(Fore.CYAN + f" Custom VAE:   { bool(md.ctx.use_VAE) }")

@@ -198,7 +198,7 @@
         <div id="container_left">
             <div id="controls">
                 <ul>
-                    <li class="category" onclick="toggleMenu(this, 358, 0)">&nbsp;▼ Pipeline</li>
+                    <li class="category" onclick="toggleMenu(this, 320, 0)">&nbsp;▼ Pipeline</li>
                     <li>
                         <label>Checkpoint</label> <select disabled id="checkpoint"></select>
                         <label>Scheduler</label> <select id="scheduler">
@@ -227,7 +227,7 @@
                         <input type="text" id="outpath" class="ignorekeys" value="./.output" placeholder="Output directory"></input>
                         <br><input type="checkbox" id="savefile" checked> <label for="savefile">Autosave File</label>
                         <br><input type="checkbox" id="onefile" checked> <label for="onefile">Save One File</label>
-                        <br><input type="checkbox" id="facefix" checked> <label for="facefix">Face Restore</label>
+                        <br><input type="checkbox" id="facefix"> <label for="facefix">Face Restore</label>
                         <br><input type="checkbox" id="upscale"> <label for="upscale">Upscale 4x</label>
                     </li>
 
@@ -371,17 +371,17 @@
         "artstation", "brush strokes", "high details", "detailed", "horror", "high tech", "modern",
         "sketch", "ink", "neon", "acrylic", "pastel", "low poly", "oily", "wet", "psychedelic",
         "cartoon", "pixelate", "arch viz", "masterpiece", "ancient", "mythical", "synesthesia",
-        "beautiful", "illusion", "dramatic", "secret", "mental", "dreamy", "voxels", "matrix",
+        "beautiful", "illusion", "dramatic", "secret", "mental", "dreamy", "horrific", "voxels", "matrix",
         "molecular", "lucid", "anonymous", "hidden", "neon punk", "electronics", "gadgets",
         "robotic", "mechanical", "augmented", "virtual", "apocalyptic", "classic", "zombie",
-        "werewolf", "spiritual", "ritual", "magical", "stealth", "character design",
+        "werewolf", "spiritual", "extraterrestrial", "ritual", "magical", "stealth", "character design",
         "",
         "dramatic lighting", "studio lighting", "cinematic lighting", "volumetric lighting",
         "dynamic lighting", "rim lighting", "natural lighting", "moody lighting", "soft lighting",
         "hard lighting", "rembrandt lighting", "split lighting", "beautiful lighting", "accent lighting",
         "golden hour", "blue and violet", "hell red", "darkness", "atmospheric",
         "",
-        "top view", "side view", "front view", "centered", "ultra-wide angle", "close up", "close shot",
+        "HD", "ultra HD", "top view", "side view", "front view", "centered", "ultra-wide angle", "close up", "close shot",
         "long shot", "serious looking", "look forward", "orthographic", "perspective", "panorama",
         "first person", "third person", "fisheye", "optics", "widescreen", "horizontal", "vertical",
         "",
@@ -391,8 +391,8 @@
         "amazon rainforest", "sunrise", "sunset", "daylight", "night", "moonlit", "clear sky",
         "lightning", "horizon", "river",
         "",
-        "HD", "ultra HD", "HDR", "depth of field", "DOF", "motion blur", "autofocus", "film grain",
-        "vintage", "vignette", "warm", "cold", "creamy", "liquid", "smooth", "high contrast", "sepia",
+        "HDR", "depth of field", "DOF", "motion blur", "autofocus", "film grain", "vintage", "vignette",
+        "warm", "cold", "creamy", "liquid", "smooth", "high contrast", "sepia",
         "",
         "unreal engine", "zbrush", "maya", "3ds max", "blender", "solidworks", "vray render", "maxwell render",
         "octane render", "renderman", "mudbox", "cinema 4d", "houdini", "substance", "quixel", "poser",
@@ -636,10 +636,11 @@
         this.generate = function() {
             if (this.isWorking) return;
             
-            if (!chk_initImage.checked && !chk_maskImage.checked
-                && checkpoint.options[checkpoint.selectedIndex].value.includes("inpainting")) {
-                notifier("Use inpainting model for inpainting only");
-                return;
+            if (!chk_initImage.checked || !chk_maskImage.checked) {
+                if (checkpoint.options[checkpoint.selectedIndex].value.toLowerCase().includes("inpainting")) {
+                    notifier("Use inpainting model for inpainting only");
+                    return;
+                }
             }
 
             if (seedRng.checked)
@@ -695,16 +696,19 @@
         }
 
         function buildData() {
-            let p = prompt.value;
+            let p = "";
             if (chk_styles.checked) {
                 for (const i in styles.active)
                     p += ", " + styles.active[i].toLowerCase();
             }
 
+            if (prompt.value.includes(p))
+                p = ""
+
             return JSON.stringify({
                 checkpoint: checkpoint.options[checkpoint.selectedIndex].value,
                 scheduler: scheduler.options[scheduler.selectedIndex].value,
-                prompt: p,
+                prompt: prompt.value + p,
                 negative: negative.value,
                 width: parseInt(width.value),
                 height: parseInt(height.value),
@@ -768,13 +772,13 @@
                 isDragPoolImage = true;
             }, false);
 
-             // we remove if later, backward compatibility
+            // we remove if later, backward compatibility
             if (data.metadata.pipeline) p.innerHTML += `<span title="Pipeline">${ data.metadata.pipeline }</span>`;
             p.innerHTML += `<span title="Checkpoint">${ data.metadata.checkpoint }</span>`;
             p.innerHTML += `<span title="Scheduler">${ data.metadata.scheduler }</span>`;
             p.innerHTML += `<span title="Dimensions">${ data.metadata.width } x ${ data.metadata.height }</span>`;
             p.innerHTML += `<span title="Filename">${ data.metadata.filename }</span><br>`;
-            p.innerHTML += `<span title="Seed">${ data.metadata.seed }</span>`;
+            p.innerHTML += `<span onclick="seed.value = ${ data.metadata.seed }" title="Seed (click to use)" style="cursor:pointer">${ data.metadata.seed }</span>`;
             p.innerHTML += `<span title="Steps"> ${ data.metadata.steps }</span>`;
             p.innerHTML += `<span title="Guidance"> ${ data.metadata.guidance }</span>`;
             p.innerHTML += `<span title="Strength"> ${ data.metadata.strength }</span>`;

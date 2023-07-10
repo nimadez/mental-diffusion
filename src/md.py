@@ -43,6 +43,9 @@ import utils
 class Context():
     def __init__(self):
         self.version = "0.1.6"
+        
+        self.use_CPU = 0
+        self.use_VAE = 0
 
         self.device = "cpu"
         self.dtype = None
@@ -59,9 +62,6 @@ class Context():
 
         self.gfpgan = None
         self.realesrgan = None
-
-        self.use_CPU = 0
-        self.use_VAE = 0
 
 ctx = Context()
 
@@ -147,7 +147,7 @@ def load_checkpoint(name):
     logging.getLogger("diffusers").setLevel(logging.ERROR) # hide safety message
     sys.stdout = open(os.devnull, 'w') # remove "global_step key not found" warning
     ctx.checkpoint_name = name
-    ctx.pipe = utils.pipe_from_ckpt(
+    ctx.pipe = utils.from_single_file(
         StableDiffusionPipeline,
         ctx.paths["checkpoints_root"] + name + ".safetensors",
         original_config_file = cfg,
