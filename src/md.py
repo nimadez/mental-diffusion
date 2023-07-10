@@ -43,6 +43,9 @@ import utils
 class Context():
     def __init__(self):
         self.version = "0.1.6"
+        
+        self.use_CPU = 0
+        self.use_VAE = 0
 
         self.device = "cpu"
         self.dtype = None
@@ -59,9 +62,6 @@ class Context():
 
         self.gfpgan = None
         self.realesrgan = None
-
-        self.use_CPU = 0
-        self.use_VAE = 0
 
 ctx = Context()
 

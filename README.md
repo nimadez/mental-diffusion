@@ -176,15 +176,15 @@ curl -o md-installer.py https://raw.githubusercontent.com/nimadez/mental-diffusi
 ```
 curl https://bootstrap.pypa.io/get-pip.py -k --ssl-no-revoke -o get-pip.py
 python get-pip.py
+python -m pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 python -m pip install accelerate==0.20.3
 python -m pip install diffusers==0.18.1
-python -m pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-python -m pip install transformers==4.30.0
+python -m pip install transformers==4.30.2
 python -m pip install omegaconf==2.3.0
 python -m pip install safetensors==0.3.1
 python -m pip install realesrgan==0.3.0
 python -m pip install gfpgan==1.3.8
-python -m pip install websockets
+python -m pip install websockets==11.0.3
 
 git clone https://github.com/nimadez/mental-diffusion.git
 run.bat       -> start server (url: http://localhost:8011)
@@ -238,7 +238,14 @@ How to speed up rendering?
 - Open NVIDIA Control Panel, enable "Adaptive" power management mode
 
 Why does it give a connection error when loading the checkpoint?
-See known issues, enable "use_proxy" or disable network connection.
+Use VPN, enable "use_proxy" in config.json, or disable network
+connection. (after you have disabled your network connection, you
+should not set proxy to 1)
+
+Why not using python venv?
+For portable programs with specific python version and many
+packages, I prefer to use embeddable python only, because no
+other packages are added, it doesnt infuence the performance.
 
 Is SDXL supported?
 SDXL requires 12 GB of video memory, it is not currently supported.

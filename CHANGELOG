@@ -2,7 +2,9 @@ All notable changes to this project will be documented in this file,
 UIX improvement and code management is not included in this file.
 
 [0.1.6]
-- 
+- update python packages
+- update installer.py (fix gfpgan and realesrgan errors)
+- webui: remove styles in case of duplicate (prevent prompt overflow)
 
 [0.1.5]
 - update diffusers to patch 0.18.1

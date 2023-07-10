@@ -43,10 +43,12 @@ if __name__ == '__main__':
 
     from utils import mem_stats_total
     from torch import __version__ as ver_troch
+    from transformers import __version__ as ver_transformers
     from diffusers import __version__ as ver_diffusers
     print(Fore.MAGENTA + "----------------------------------------")
     print(Fore.MAGENTA + f" Mental Diffusion { md.ctx.version }        @nimadez")
     print(Fore.CYAN + f" Torch:        { ver_troch }")
+    print(Fore.CYAN + f" Transformers: { ver_transformers }")
     print(Fore.CYAN + f" Diffusers:    { ver_diffusers }")
     print(Fore.CYAN + f" Device:       { str(md.ctx.device).upper() }")
     print(Fore.CYAN + f" Checkpoints:  { len(md.ctx.checkpoints) }")

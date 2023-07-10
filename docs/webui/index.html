@@ -198,7 +198,7 @@
         <div id="container_left">
             <div id="controls">
                 <ul>
-                    <li class="category" onclick="toggleMenu(this, 358, 0)">&nbsp;▼ Pipeline</li>
+                    <li class="category" onclick="toggleMenu(this, 320, 0)">&nbsp;▼ Pipeline</li>
                     <li>
                         <label>Checkpoint</label> <select disabled id="checkpoint"></select>
                         <label>Scheduler</label> <select id="scheduler">
@@ -695,16 +695,19 @@
         }
 
         function buildData() {
-            let p = prompt.value;
+            let p = "";
             if (chk_styles.checked) {
                 for (const i in styles.active)
                     p += ", " + styles.active[i].toLowerCase();
             }
 
+            if (prompt.value.includes(p))
+                p = ""
+
             return JSON.stringify({
                 checkpoint: checkpoint.options[checkpoint.selectedIndex].value,
                 scheduler: scheduler.options[scheduler.selectedIndex].value,
-                prompt: p,
+                prompt: prompt.value + p,
                 negative: negative.value,
                 width: parseInt(width.value),
                 height: parseInt(height.value),
