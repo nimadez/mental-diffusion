@@ -1,0 +1,37 @@
+{
+    "http_proxy": null,
+    
+    "checkpoints": [
+        "/../../../Models/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/juggernaut_reborn.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/reliberate_v3.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/deliberate_v5.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/dreamshaper_8.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/ghostmix_v20Bakedvae.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/xl/sd_xl_base_1.0.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/xl/sd_xl_turbo_1.0_fp16.safetensors",
+        "/../../../Models/stable-diffusion/checkpoints/xl/OpenDalleV1.1.safetensors"
+    ],
+    
+    "vaes": [
+        "/../../../Models/stable-diffusion/vae/vae-ft-mse-840000-ema-pruned.safetensors",
+        "/../../../Models/stable-diffusion/vae/TRCVAE.safetensors",
+        "/../../../Models/stable-diffusion/vae/sdxl_vae.safetensors"
+    ],
+
+    "loras": [
+        "/../../../Models/stable-diffusion/loras/WorldofOrigami.safetensors",
+        "/../../../Models/stable-diffusion/loras/machines.safetensors",
+        "/../../../Models/stable-diffusion/loras/xl/Woolifyv1.safetensors"
+    ],
+
+    "upscalers": [
+        "/../../../Models/stable-diffusion/realesrgan/RealESRGAN_x4plus.pth",
+        "/../../../Models/stable-diffusion/realesrgan/RealESRGAN_x4plus_anime_6B.pth"
+    ],
+
+    "model": "sd",
+    "scheduler": "euler_anc",
+    "width": 512,
+    "height": 512
+}
