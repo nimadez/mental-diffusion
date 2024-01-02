@@ -2,19 +2,23 @@
 
 Stable diffusion command-line interface
 
-```Version 0.6.9 alpha```<br>
+```Version 0.6.9 alpha```
+
+[Downloads](https://github.com/nimadez/mental-diffusion/releases)<br>
+[ComfyUI Bridge for VS Code](https://github.com/nimadez/mental-diffusion/tree/main/comfyui)<br>
 [Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG.md)<br>
-[ComfyUI Interface for VS Code](https://github.com/nimadez/mental-diffusion/tree/main/comfyui) is available for download
+[Known Issues](https://github.com/nimadez/mental-diffusion#known-issues)
+
+> Everything gets complicated from this part down ↓, if you want less headache you can use comfyui-bridge ↑
 
 <img src="media/splash.jpg">
 
 - Command-line interface
 - Websockets server
-- Websockets client ```http://localhost:port```
+- Websockets client ```electron```
 - SD, SDXL, SDXL-Turbo, VAE, LoRA
-- Text to Image
-- Image to Image
-- Image Inpainting
+- Text-to-Image, Image-to-Image, Inpaint
+- Latent preview (TAESD/XL)
 - Upscaler realesrgan 4x
 - Read and write PNG with metadata
 - Optimized for low specs
@@ -46,7 +50,7 @@ Stable diffusion command-line interface
 --filename   -f     str    filename prefix (no png extension)
 --batch      -b     int    enter number of repeats to run in batch (def: 1)
 
---server     -serv  int    start MD on the websockets server (port is required)
+--server     -serv  int    start websockets server (port is required)
 --metadata   -meta  str    /path-to-image.png, extract metadata from PNG
 --upscale4x  -up4x  str    /path-to-image.png, upscale a PNG
 
@@ -55,14 +59,9 @@ txt2img: when the 'image' is empty, the pipeline switches to txt2img
 img2img: when the 'image' is not empty, the pipeline switches to img2img
 inpaint: when the 'image' and 'mask' are not empty, the pipeline switches to inpaint
 
-[recommended model settings]
-SD          512x512 (--steps from 10 to 30 depending on the model)
-SDXL        1024x1024 (--steps from 20 to 50, 768x768 partially working)
-SDXL-Turbo  512x512 (--steps from 1 to 5, set --guidance to 0.0)
-
 * --server or --batch is recommended because there is no need to reload the checkpoint
+* SDXL-Turbo: 512x512, --steps from 1 to 5, set --guidance to 0.0
 * To load SDXL on 3.5 GB, you need at least 16 GB memory and virtual-memory paging
-* I have not changed the weights and text encoders, everything is as provided by default
 ```
 
 ```
@@ -70,7 +69,7 @@ SDXL-Turbo  512x512 (--steps from 1 to 5, set --guidance to 0.0)
 define models and startup values
 
 {
-    "http_proxy": "http://localhost:8118",
+    "http_proxy": null,
     
     "checkpoints": [
         "/path-to/checkpoint1.safetensors",
@@ -111,6 +110,21 @@ define models and startup values
 ### Batch
 <img src="media/batch.gif">
 
+## Known Issues
+```
+Latent preview is not fully supported by discrete schedulers and SDXL:
+- DDPMScheduler                     realtime SD, basic SDXL
+- DDIMScheduler                     realtime SD, basic SDXL
+- PNDMScheduler                     realtime SD, basic SDXL
+- LMSDiscreteScheduler              basic SD/SDXL
+- EulerDiscreteScheduler            basic SD/SDXL
+- EulerAncestralDiscreteScheduler   basic SD/SDXL
+* Probably, in the next versions of diffusers, this problem will be solved by itself.
+
+TypeError: StableDiffusionPipeline.__init__() got an unexpected keyword argument 'safety_checker'
+- The selected --model (sd/xl) does not match the checkpoint
+```
+
 ## History
 ```
 ↑ Back to the roots (diffusers)
@@ -132,7 +146,8 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [Diffusers](https://github.com/huggingface/diffusers)
 - [PyTorch](https://pytorch.org/)
 - [Stability-AI](https://github.com/Stability-AI)
-- [Civitai](https://civitai.com/)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
+- [TAESD](https://github.com/madebyollin/taesd)
+- [Electron](https://www.electronjs.org/)
 
 <img src="media/ending.jpg">

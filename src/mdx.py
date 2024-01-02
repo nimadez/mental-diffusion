@@ -11,28 +11,28 @@ import os
 import sys
 import gc
 import json
+import math
 import random
 import logging
 import asyncio
 import threading
-import numpy as np
 import websockets
-from argparse import ArgumentParser
-from base64 import b64encode, b64decode
-from http import HTTPStatus
+import numpy as np
+import torch
+from PIL import Image
 from io import BytesIO
 from colorama import Fore
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
+from http import HTTPStatus
+from urllib.request import urlopen
+from argparse import ArgumentParser
 from realesrgan import RealESRGANer
-from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+from PIL.PngImagePlugin import PngInfo
+from base64 import b64encode, b64decode
 from basicsr.archs.rrdbnet_arch import RRDBNet
+from realesrgan.archs.srvgg_arch import SRVGGNetCompact
 from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
-from torch import (
-    cuda,
-    float16,
-    Generator)
 from diffusers.models.attention_processor import AttnProcessor2_0
+from diffusers.image_processor import VaeImageProcessor
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
@@ -46,7 +46,7 @@ from diffusers import (
     LMSDiscreteScheduler,
     EulerDiscreteScheduler,
     EulerAncestralDiscreteScheduler,
-    AutoencoderKL)
+    AutoencoderKL, AutoencoderTiny)
 
 
 LOG_FORMAT = "%(asctime)s %(threadName)s %(message)s"
@@ -108,6 +108,10 @@ class Context():
 
         self.last_checkpoint = None
         self.pipe_vae = None
+
+        self.text_embeds = []
+        self.vae_processor = None
+        self.tae = None
 
 ctx = Context()
 
@@ -281,7 +285,7 @@ def arg_parser(args):
         '-serv', '--server',
         type = int,
         default = -1,
-        help = "start MD on the websockets server (port is required)"
+        help = "start websockets server (port is required)"
     )
     parser.add_argument(
         '-meta', '--metadata',
@@ -296,6 +300,9 @@ def arg_parser(args):
         help = "/path-to-image.png, upscale a PNG"
     )
     return parser.parse_args(args)
+
+
+# Utils
 
 
 def path_checker():
@@ -327,26 +334,10 @@ def path_checker():
 
     return True
 
-            
-def get_scheduler():
-    match ctx.scheduler:
-        case "ddpm":
-            ctx.pipe.scheduler = DDPMScheduler.from_config(ctx.pipe.scheduler.config)
-        case "ddim":
-            ctx.pipe.scheduler = DDIMScheduler.from_config(ctx.pipe.scheduler.config)
-        case "pndm":
-            ctx.pipe.scheduler = PNDMScheduler.from_config(ctx.pipe.scheduler.config)
-        case "lms":
-            ctx.pipe.scheduler = LMSDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
-        case "euler":
-            ctx.pipe.scheduler = EulerDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
-        case "euler_anc":
-            ctx.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
-
 
 def prepare_input_image(uri):
     if uri.startswith('data:image/png'):
-        img = Image.open(BytesIO(b64decode(uri.split(',')[1])))
+        img = base64Decode(uri)
         return img.convert("RGB")
     elif uri.endswith('.png') or uri.endswith('.PNG'):
         img = Image.open(uri)
@@ -356,7 +347,7 @@ def prepare_input_image(uri):
 
 def get_metadata(uri, is_base64=False):
     if is_base64 and uri.startswith('data:image/png'):
-        return Image.open(BytesIO(b64decode(uri.split(',')[1]))).info
+        return base64Decode(uri).info
     else:
         if os.path.exists(uri):
             return Image.open(uri).info
@@ -384,25 +375,22 @@ def base64Encode(img, format="png"):
     return b64str
 
 
+def base64Decode(str):
+    return Image.open(BytesIO(b64decode(str.split(',')[1])))
+
+
 def clear_cache():
     gc.collect()
-    if cuda.is_available():
-        cuda.empty_cache()
-        cuda.ipc_collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
 
 
-def init():
-    # detect device
-    ctx.dtype = float16
-    ctx.device = "cuda" if cuda.is_available() else "cpu"
-    if ctx.cpu or ctx.device == "cpu":
-        ctx.dtype = None
-        ctx.device = "cpu"
-    print("device:", ctx.device.upper())
+# Loaders
 
 
 def load_checkpoint():
-    print("loading new checkpoint...")
+    print("loading checkpoint:", os.path.basename(ctx.checkpoint))
     logging.getLogger("diffusers").setLevel(logging.ERROR)
     if ctx.model == "sd":
         ctx.pipe = StableDiffusionPipeline.from_single_file(
@@ -430,7 +418,7 @@ def load_checkpoint():
 
     ctx.pipe.requires_safety_checker = False
     ctx.pipe.safety_checker = None
-    print("load checkpoint:", os.path.basename(ctx.checkpoint))
+    print("checkpoint loaded.")
 
 
 def load_vae():
@@ -446,15 +434,77 @@ def load_vae():
     print("load vae:", os.path.basename(ctx.vae))
 
 
+def load_tae():
+    if ctx.model == "sd":
+        ctx.tae = AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=ctx.dtype).to(device=ctx.device)
+        print("load tae: sd")
+    elif ctx.model == "xl":
+        ctx.tae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=ctx.dtype).to(device=ctx.device)
+        print("load tae: sdxl")
+    ctx.tae.enable_slicing()
+    ctx.tae.enable_tiling()
+
+
 def load_lora_weights(adapter_name):
     model_path = os.path.dirname(ctx.lora)
     weight_name = os.path.basename(ctx.lora)
     ctx.pipe.load_lora_weights(model_path, weight_name=weight_name, adapter_name=adapter_name)
-    #ctx.pipe.set_adapters(["adapter1", "adapter2"], adapter_weights=[0.5, 1.0]) # combine
-    #ctx.pipe.fuse_lora()
-    #ctx.pipe.unfuse_lora()
-    #ctx.pipe.get_active_adapters()
+    #pipe.set_adapters(["a1", "a2"], adapter_weights=[0.5, 1.0]) # combine
+    #fuse_lora() unfuse_lora() get_active_adapters()
     print("load lora:", os.path.basename(ctx.lora))
+
+
+def load_scheduler():
+    match ctx.scheduler:
+        case "ddpm":
+            ctx.pipe.scheduler = DDPMScheduler.from_config(ctx.pipe.scheduler.config)
+        case "ddim":
+            ctx.pipe.scheduler = DDIMScheduler.from_config(ctx.pipe.scheduler.config)
+        case "pndm":
+            ctx.pipe.scheduler = PNDMScheduler.from_config(ctx.pipe.scheduler.config)
+        case "lms":
+            ctx.pipe.scheduler = LMSDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
+        case "euler":
+            ctx.pipe.scheduler = EulerDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
+        case "euler_anc":
+            ctx.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
+
+
+def load_text_embeds():
+    # encode prompt for latent preview
+    if ctx.model == "sd":
+        ctx.text_embeds = ctx.pipe.encode_prompt(
+            prompt = ctx.prompt,
+            device = ctx.device,
+            num_images_per_prompt = 1,
+            do_classifier_free_guidance = ctx.guidance > 1.0,
+            negative_prompt = ctx.negative,
+            lora_scale = ctx.lora_scale)
+    elif ctx.model == "xl":
+        ctx.text_embeds = ctx.pipe.encode_prompt(
+            prompt = ctx.prompt,
+            prompt_2 = None,
+            device = ctx.device,
+            num_images_per_prompt = 1,
+            do_classifier_free_guidance = ctx.guidance > 1.0,
+            negative_prompt = ctx.negative,
+            negative_prompt_2 = None,
+            lora_scale = ctx.lora_scale)
+
+
+# Pipelines
+
+
+def init():
+    # detect device
+    ctx.dtype = torch.float16
+    ctx.device = "cuda" if torch.cuda.is_available() else "cpu"
+    if ctx.cpu or ctx.device == "cpu":
+        ctx.dtype = None
+        ctx.device = "cpu"
+    print("device:", ctx.device.upper())
+
+    ctx.vae_processor = VaeImageProcessor(do_normalize=True)
 
 
 def pipeline_to_device():
@@ -462,13 +512,14 @@ def pipeline_to_device():
         load_checkpoint()
         ctx.last_checkpoint = ctx.checkpoint
         ctx.pipe_vae = ctx.pipe.vae
+        load_tae()
 
     if ctx.device != "cpu":
+        ctx.pipe.enable_vae_slicing()   # sliced VAE decode for larger batches
+        ctx.pipe.enable_vae_tiling()    # tiled VAE decode/encode for large images
         #ctx.pipe.enable_model_cpu_offload()
         #ctx.pipe.enable_sequential_cpu_offload()
-        ctx.pipe.enable_vae_slicing()            # sliced VAE decode for larger batches
-        ctx.pipe.enable_vae_tiling()             # tiled VAE decode/encode for large images
-
+    
     # vae
     if ctx.vae:
         load_vae()
@@ -490,9 +541,31 @@ def pipeline_to_device():
         ctx.pipe.enable_attention_slicing(1)    # low vram usage (auto|max|8)
 
 
-def callback_on_step_end(pipe, i, t, callback_kwargs):
-    #ctx.progress = [i, t.item()]
+# Inference
+
+
+def latent_preview_step(i, unet, scheduler, latents, timesteps):
+    if ctx.model == "sd":
+        with torch.no_grad():
+            noise_pred = unet(latents, timesteps, encoder_hidden_states=ctx.text_embeds[0]).sample
+
+        # not fully compatible with discretes (lms, euler, euler_anc)
+        alpha_t = torch.sqrt(scheduler.alphas_cumprod)
+        sigma_t = torch.sqrt(1 - scheduler.alphas_cumprod)
+        a_t, s_t = alpha_t[int(timesteps.tolist())], sigma_t[int(timesteps.tolist())]
+        latents = (latents - s_t * noise_pred) / a_t
+
+    elif ctx.model == "xl":
+        pass # TODO: incompatible unet added_cond_kwargs
+    
+    decoded = ctx.tae.decode(latents).sample
+    image = ctx.vae_processor.postprocess(decoded)[0]
+    image.save(ROOT + '/preview.jpg') # + i
+
+
+def callback_on_step_end(pipe, i, ts, callback_kwargs):
     #pipe._interrupt = True
+    latent_preview_step(i, pipe.unet, pipe.scheduler, callback_kwargs["latents"], ts)
     return callback_kwargs
 
 
@@ -520,20 +593,17 @@ def get_images(pipe, generator):
         negative_prompt_embeds = None,
         output_type = "pil", # "str"
         return_dict = True,
-        callback = None,
         callback_on_step_end = callback_on_step_end,
         cross_attention_kwargs = cross)
         #guidance_rescale = 0.7) #def: 0.7
 
 
 def inference():
-    get_scheduler()
-    if not ctx.pipe.scheduler:
-        print('Error: invalid scheduler input')
-        sys.exit(1)
+    load_scheduler()
+    load_text_embeds()
 
     if ctx.steps * ctx.strength < 1:
-        print('Warning: make sure that (steps * strength) is larger or equal to 1')
+        ctx.steps = math.ceil(1 / max(0.1, ctx.strength))
 
     seed = ctx.seed
     if seed == -1:
@@ -548,7 +618,7 @@ def inference():
 
     ctx.width = round(ctx.width / 8) * 8
     ctx.height = round(ctx.height / 8) * 8
-    generator = Generator(ctx.device).manual_seed(seed)
+    generator = torch.Generator(ctx.device).manual_seed(seed)
     pipe_name = "undefined"
     pipe = None
 
@@ -728,6 +798,9 @@ def create(doinference, **kwargs):
     return True
 
 
+# Websockets server
+
+
 class EchoServer:
     async def echo(self, client):
         async for ws in client:
@@ -745,6 +818,7 @@ class EchoServer:
                         "height": ctx.configs["height"]
                     }))
                     log.info("connection open")
+                    self.count = 1
 
                 case "create":
                     data = ws["val"]
@@ -775,7 +849,11 @@ class EchoServer:
 
                     if is_ok:
                         for _ in range(1, ctx.batch + 1):
-                            print(Fore.CYAN + f"#{_}")
+                            if _ == 1:
+                                print(Fore.CYAN + f"#{self.count}")
+                            else:
+                                print(Fore.CYAN + f"#{self.count} {_}")
+
                             try:
                                 await client.send(inference())
                                 clear_cache()
@@ -784,6 +862,8 @@ class EchoServer:
                                 log.info("interrupted.")
                     else:
                         await client.send('')
+
+                    self.count += 1
 
                 case "upscale":
                     data = ws["val"]
@@ -794,36 +874,20 @@ class EchoServer:
                     await client.send(str(get_metadata(ws["val"]["uri"], True)))
 
 
-    async def request_handler(self, path, request_headers):
-        if path == '/':
-            response_headers = [
-                ('Server', 'asyncio websocket server'),
-                ('Connection', 'close'),
-            ]
-            body = open(ROOT + "/mdx.html", 'rb').read()
-            response_headers.append(('Content-Length', str(len(body))))
-            response_headers.append(('Content-Type', "text/html"))
-            return HTTPStatus.OK, response_headers, body
-
-
     async def main(self):
         try:
             MAX_SIZE_BYTES = 2 ** 25 # 33MB
             self.server = await websockets.serve(self.echo,
-                "localhost", self.port,
-                max_queue=1, max_size=MAX_SIZE_BYTES,
-                process_request=self.request_handler)
-            log.info("running server at " + Fore.CYAN + f"http://localhost:{ self.port }")
+                "localhost", self.port, max_queue=1, max_size=MAX_SIZE_BYTES)
+            log.info("running server at " + Fore.CYAN + f"ws://localhost:{ self.port }")
             log.info("CTRL+C terminate running task")
-            await self.server.wait_closed()
-        except websockets.exceptions.ConnectionClosed:
-            clear_cache()
         except Exception:
             log.error("server is already running!")
 
 
     def start(self, port):
         self.port = port
+        self.count = 1
         try:
             self.loop = asyncio.get_event_loop()
             self.loop.create_task(self.main())
@@ -834,6 +898,9 @@ class EchoServer:
             asyncio.get_event_loop().stop()
             clear_cache()
             sys.exit(0)
+
+
+# Main
 
 
 def main(args):

@@ -1,0 +1,15 @@
+{
+    "name": "mental-diffusion",
+    "version": "0.6.9",
+    "description": "Stable diffusion command-line interface",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "repository": "https://github.com/nimadez/mental-diffusion",
+    "author": "@nimadez",
+    "license": "MIT",
+    "devDependencies": {
+        "electron": "^28.0.0"
+    }
+}

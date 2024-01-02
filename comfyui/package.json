@@ -1,7 +1,7 @@
 {
 	"name": "mental-diffusion",
 	"displayName": "Mental Diffusion",
-	"description": "ComfyUI Interface for VS Code",
+	"description": "ComfyUI Bridge for VS Code",
 	"icon": "media/appicon.png",
 	"version": "0.6.9",
 	"publisher": "nimadez",

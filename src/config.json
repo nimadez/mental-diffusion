@@ -1,11 +1,9 @@
 {
-    "http_proxy": null,
+    "http_proxy": "http://localhost:8118",
     
     "checkpoints": [
         "/../../../Models/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors",
         "/../../../Models/stable-diffusion/checkpoints/juggernaut_reborn.safetensors",
-        "/../../../Models/stable-diffusion/checkpoints/reliberate_v3.safetensors",
-        "/../../../Models/stable-diffusion/checkpoints/deliberate_v5.safetensors",
         "/../../../Models/stable-diffusion/checkpoints/dreamshaper_8.safetensors",
         "/../../../Models/stable-diffusion/checkpoints/ghostmix_v20Bakedvae.safetensors",
         "/../../../Models/stable-diffusion/checkpoints/xl/sd_xl_base_1.0.safetensors",
@@ -31,7 +29,7 @@
     ],
 
     "model": "sd",
-    "scheduler": "euler_anc",
+    "scheduler": "ddim",
     "width": 512,
     "height": 512
 }

@@ -1,8 +1,6 @@
-## Mental Diffusion
+## Mental Diffusion ComfyUI Bridge
 
 <img src="media/screenshot.jpg">
-
-ComfyUI Interface for VS Code
 
 ## Features
 - [x] VS Code Extension
@@ -44,6 +42,7 @@ ComfyUI Interface for VS Code
 - Get [ComfyUI](https://github.com/comfyanonymous/ComfyUI/releases) and setup models
 - Download [RealESRGAN_x4plus.pth](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth) to "ComfyUI/models/upscale_models"
 - [Download Extension](https://github.com/nimadez/mental-diffusion/releases)
+- Drag and drop the downloaded VSIX file to the vscode extensions panel
 
 #### Running
 - Open *Extension Settings*
