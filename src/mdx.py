@@ -1001,7 +1001,7 @@ def main(args):
 if __name__ == '__main__':
     try:
         print()
-        print(Fore.MAGENTA + "Mental Diffusion 0.7.0")
+        print(Fore.MAGENTA + "Mental Diffusion 0.7.1")
 
         if not hf_cache_check("openai/clip-vit-large-patch14", "config.json"):
             ctx.hf_cache_exist = False

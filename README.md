@@ -2,7 +2,7 @@
 
 Stable diffusion command-line interface
 
-```Version 0.7.0 alpha```
+```Version 0.7.1 alpha```
 
 [Downloads](https://github.com/nimadez/mental-diffusion/releases)<br>
 [Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG.md)<br>

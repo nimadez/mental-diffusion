@@ -1,10 +1,12 @@
-## 0.7.0 nightly
+## 0.7.1 nightly
+- in progress...
+
+## 0.7.0
 - Add pndm scheduler
 - Finish preview for discrete schedulers
 - Add new gif generator, save gif animations
 - Remove --model and automatically detect the model type before loading
 - Change gif to webp (lossy=100) for better quality
-- in progress...
 
 ## 0.6.9
 - Fix client seed (reduce generator max seed from 19 to 16 digits)
