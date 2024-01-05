@@ -7,18 +7,18 @@
 __import__('colorama').init(autoreset=True)
 __import__('warnings').filterwarnings("ignore", category=UserWarning) # disable esrgan/torchvision warnings
 
+import gc
 import os
 import sys
-import gc
 import json
 import math
+import torch
 import random
 import logging
 import asyncio
 import threading
 import websockets
 import numpy as np
-import torch
 from PIL import Image
 from io import BytesIO
 from colorama import Fore
@@ -40,12 +40,13 @@ from diffusers import (
     StableDiffusionXLPipeline,
     StableDiffusionXLImg2ImgPipeline,
     StableDiffusionXLInpaintPipeline,
-    DDPMScheduler,
     DDIMScheduler,
+    DDPMScheduler,
+    LCMScheduler,
     PNDMScheduler,
-    LMSDiscreteScheduler,
-    EulerDiscreteScheduler,
     EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    LMSDiscreteScheduler,
     AutoencoderKL, AutoencoderTiny)
 
 
@@ -64,6 +65,8 @@ os.environ['TRANSFORMERS_OFFLINE'] = "1"
 
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
+PREVIEW = ROOT + "/preview.bmp"
+PREVIEWANIM = ROOT + "/preview.webp"
 METADATAKEY = "mental-diffusion"
 
 
@@ -72,15 +75,15 @@ class Context():
         self.hf_cache_exist = True
         self.configs = []
 
-        self.cpu = False
-        self.device = "cpu"
+        self.use_cpu = True
+        self.device = ""
         self.dtype = None
 
+        self.model = ""
         self.pipe = None
 
-        self.model = "sd"
-        self.checkpoint = None
         self.upscaler = None
+        self.checkpoint = None
 
         self.vae = None
         self.lora = None
@@ -89,8 +92,8 @@ class Context():
         self.scheduler = ""
         self.prompt = ""
         self.negative = ""
-        self.width = 512
-        self.height = 512
+        self.width = 256
+        self.height = 256
         self.seed = -1
         self.steps = 25
         self.guidance = 8.0
@@ -104,14 +107,21 @@ class Context():
         self.onefile = False
         self.outpath = ".output"
         self.filename = "img"
+
         self.batch = 1
+        self.preview = True
 
         self.last_checkpoint = None
         self.pipe_vae = None
 
-        self.text_embeds = []
         self.vae_processor = None
+        
+        self.taesd = None
+        self.taesdxl = None
         self.tae = None
+
+        self.hidden_states = None
+        self.captures = []
 
 ctx = Context()
 
@@ -121,13 +131,14 @@ def load_configs():
         ctx.configs = json.loads(f.read())
 
     if ctx.configs["http_proxy"]:
-        os.environ['http_proxy'] = ctx.configs["http_proxy"]
-        os.environ['https_proxy'] = ctx.configs["http_proxy"]
+        os.environ["http_proxy"] = ctx.configs["http_proxy"]
+        os.environ["https_proxy"] = ctx.configs["http_proxy"]
 
-    ctx.checkpoint = ctx.configs["checkpoints"][0]
+    ctx.use_cpu = ctx.configs["use_cpu"]
+
     ctx.upscaler = ctx.configs["upscalers"][0]
+    ctx.checkpoint = ctx.configs["checkpoints"][0]
 
-    ctx.model = ctx.configs["model"]
     ctx.scheduler = ctx.configs["scheduler"]
     ctx.width = ctx.configs["width"]
     ctx.height = ctx.configs["height"]
@@ -140,11 +151,11 @@ def arg_parser(args):
         action='help',
         help='show this help message and exit')
     parser.add_argument(
-        '-mod', '--model',
+        '-u', '--upscaler',
         type = str,
-        default = ctx.model,
+        default = ctx.upscaler,
         required = False,
-        help = "sd/xl, define model type, (def: config.json)"
+        help = "set realesrgan by file name or path (def: config.json)"
     )
     parser.add_argument(
         '-c', '--checkpoint',
@@ -152,13 +163,6 @@ def arg_parser(args):
         default = ctx.checkpoint,
         required = False,
         help = "set checkpoint by file name or path (def: config.json)"
-    )
-    parser.add_argument(
-        '-u', '--upscaler',
-        type = str,
-        default = ctx.upscaler,
-        required = False,
-        help = "optional realesrgan by file name or path (def: config.json)"
     )
     parser.add_argument(
         '-v', '--vae',
@@ -183,7 +187,7 @@ def arg_parser(args):
         '-sc', '--scheduler',
         type = str,
         default = ctx.scheduler,
-        help = "ddpm, ddim, pndm, lms, euler, euler_anc (def: config.json)"
+        help = "ddim, ddpm, lcm, pndm, euler_anc, euler, lms (def: config.json)"
     )
     parser.add_argument(
         '-p', '--prompt',
@@ -194,8 +198,8 @@ def arg_parser(args):
     parser.add_argument(
         '-n', '--negative',
         type = str,
-        default = "deformed, distorted, disfigured, poorly drawn, poorly drawn hands, poorly drawn face, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, mutated hands and fingers, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, malformed hands, out of focus, text, watermark",
-        help = "negative prompt text input (def: sample)"
+        default = "",
+        help = "negative prompt text input (def: empty)"
     )
     parser.add_argument(
         '-w', '--width',
@@ -282,6 +286,12 @@ def arg_parser(args):
         help = "enter number of repeats to run in batch (def: 1)"
     )
     parser.add_argument(
+        '-pv', '--preview',
+        type = lambda x: (str(x).lower() == 'true'),
+        default = ctx.preview,
+        help = "stepping is slower with the preview (def: True)"
+    )
+    parser.add_argument(
         '-serv', '--server',
         type = int,
         default = -1,
@@ -337,7 +347,7 @@ def path_checker():
 
 def prepare_input_image(uri):
     if uri.startswith('data:image/png'):
-        img = base64Decode(uri)
+        img = base64_decode(uri)
         return img.convert("RGB")
     elif uri.endswith('.png') or uri.endswith('.PNG'):
         img = Image.open(uri)
@@ -347,7 +357,7 @@ def prepare_input_image(uri):
 
 def get_metadata(uri, is_base64=False):
     if is_base64 and uri.startswith('data:image/png'):
-        return base64Decode(uri).info
+        return base64_decode(uri).info
     else:
         if os.path.exists(uri):
             return Image.open(uri).info
@@ -366,7 +376,7 @@ def hf_cache_check(model, filename):
         return False
 
 
-def base64Encode(img, format="png"):
+def base64_encode(img, format="png"):
     buffered = BytesIO()
     img.save(buffered, format=format)
     buffered.seek(0)
@@ -375,8 +385,12 @@ def base64Encode(img, format="png"):
     return b64str
 
 
-def base64Decode(str):
+def base64_decode(str):
     return Image.open(BytesIO(b64decode(str.split(',')[1])))
+
+
+def reset_preview(w, h):
+    Image.new('RGB', (w, h), (15, 19, 26)).save(PREVIEW)
 
 
 def clear_cache():
@@ -392,6 +406,12 @@ def clear_cache():
 def load_checkpoint():
     print("loading checkpoint:", os.path.basename(ctx.checkpoint))
     logging.getLogger("diffusers").setLevel(logging.ERROR)
+    
+    if os.path.getsize(ctx.checkpoint) < 3000000000:
+        ctx.model = "sd"
+    elif os.path.getsize(ctx.checkpoint) > 5000000000:
+        ctx.model = "xl"
+
     if ctx.model == "sd":
         ctx.pipe = StableDiffusionPipeline.from_single_file(
             ctx.checkpoint,
@@ -401,6 +421,7 @@ def load_checkpoint():
             image_size = 512,
             local_files_only = ctx.hf_cache_exist,
             use_safetensors = True,
+            extract_ema = True,
             force_download = False,
             resume_download = True,
             load_safety_checker = False)
@@ -412,9 +433,16 @@ def load_checkpoint():
             image_size = 1024,
             local_files_only = ctx.hf_cache_exist,
             use_safetensors = True,
+            extract_ema = True,
             force_download = False,
             resume_download = True,
             load_safety_checker = False)
+
+    if ctx.device != "cpu":
+        ctx.pipe.enable_vae_slicing()   # sliced VAE decode for larger batches
+        ctx.pipe.enable_vae_tiling()    # tiled VAE decode/encode for large images
+        #ctx.pipe.enable_model_cpu_offload()
+        #ctx.pipe.enable_sequential_cpu_offload()
 
     ctx.pipe.requires_safety_checker = False
     ctx.pipe.safety_checker = None
@@ -434,17 +462,6 @@ def load_vae():
     print("load vae:", os.path.basename(ctx.vae))
 
 
-def load_tae():
-    if ctx.model == "sd":
-        ctx.tae = AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=ctx.dtype).to(device=ctx.device)
-        print("load tae: sd")
-    elif ctx.model == "xl":
-        ctx.tae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=ctx.dtype).to(device=ctx.device)
-        print("load tae: sdxl")
-    ctx.tae.enable_slicing()
-    ctx.tae.enable_tiling()
-
-
 def load_lora_weights(adapter_name):
     model_path = os.path.dirname(ctx.lora)
     weight_name = os.path.basename(ctx.lora)
@@ -454,26 +471,38 @@ def load_lora_weights(adapter_name):
     print("load lora:", os.path.basename(ctx.lora))
 
 
+def load_taesd():
+    ctx.taesd = AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=ctx.dtype).to(ctx.device, ctx.dtype)
+    ctx.taesdxl = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=ctx.dtype).to(ctx.device, ctx.dtype)
+    ctx.taesd.enable_slicing()
+    ctx.taesd.enable_tiling()
+    ctx.taesdxl.enable_slicing()
+    ctx.taesdxl.enable_tiling()
+    print("taesd loaded.")
+
+
 def load_scheduler():
     match ctx.scheduler:
-        case "ddpm":
-            ctx.pipe.scheduler = DDPMScheduler.from_config(ctx.pipe.scheduler.config)
         case "ddim":
             ctx.pipe.scheduler = DDIMScheduler.from_config(ctx.pipe.scheduler.config)
+        case "ddpm":
+            ctx.pipe.scheduler = DDPMScheduler.from_config(ctx.pipe.scheduler.config)
+        case "lcm":
+            ctx.pipe.scheduler = LCMScheduler.from_config(ctx.pipe.scheduler.config)
         case "pndm":
             ctx.pipe.scheduler = PNDMScheduler.from_config(ctx.pipe.scheduler.config)
-        case "lms":
-            ctx.pipe.scheduler = LMSDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
-        case "euler":
-            ctx.pipe.scheduler = EulerDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
         case "euler_anc":
             ctx.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
+        case "euler":
+            ctx.pipe.scheduler = EulerDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
+        case "lms":
+            ctx.pipe.scheduler = LMSDiscreteScheduler.from_config(ctx.pipe.scheduler.config)
 
 
-def load_text_embeds():
-    # encode prompt for latent preview
+def load_hidden_states():
+    # encodes the prompt into text encoder hidden states
     if ctx.model == "sd":
-        ctx.text_embeds = ctx.pipe.encode_prompt(
+        ctx.hidden_states = ctx.pipe.encode_prompt(
             prompt = ctx.prompt,
             device = ctx.device,
             num_images_per_prompt = 1,
@@ -481,7 +510,7 @@ def load_text_embeds():
             negative_prompt = ctx.negative,
             lora_scale = ctx.lora_scale)
     elif ctx.model == "xl":
-        ctx.text_embeds = ctx.pipe.encode_prompt(
+        ctx.hidden_states = ctx.pipe.encode_prompt(
             prompt = ctx.prompt,
             prompt_2 = None,
             device = ctx.device,
@@ -499,77 +528,90 @@ def init():
     # detect device
     ctx.dtype = torch.float16
     ctx.device = "cuda" if torch.cuda.is_available() else "cpu"
-    if ctx.cpu or ctx.device == "cpu":
+    if ctx.use_cpu or ctx.device == "cpu":
         ctx.dtype = None
-        ctx.device = "cpu"
     print("device:", ctx.device.upper())
 
+    load_taesd()
     ctx.vae_processor = VaeImageProcessor(do_normalize=True)
 
 
 def pipeline_to_device():
     if not ctx.pipe or ctx.checkpoint != ctx.last_checkpoint:
         load_checkpoint()
+        ctx.pipe.to(ctx.device, ctx.dtype)
+
         ctx.last_checkpoint = ctx.checkpoint
         ctx.pipe_vae = ctx.pipe.vae
-        load_tae()
 
-    if ctx.device != "cpu":
-        ctx.pipe.enable_vae_slicing()   # sliced VAE decode for larger batches
-        ctx.pipe.enable_vae_tiling()    # tiled VAE decode/encode for large images
-        #ctx.pipe.enable_model_cpu_offload()
-        #ctx.pipe.enable_sequential_cpu_offload()
+        # load taesd
+        if ctx.model == "sd":
+            ctx.tae = ctx.taesd
+        elif ctx.model == "xl":
+            ctx.tae = ctx.taesdxl
     
-    # vae
+    # load vae
     if ctx.vae:
         load_vae()
     else:
         ctx.pipe.vae = ctx.pipe_vae
-
     ctx.pipe.vae.decoder.mid_block.attentions[0]._use_2_0_attn = True
     ctx.pipe.vae.to(ctx.device, ctx.dtype)
     
-    ctx.pipe.to(ctx.device, ctx.dtype)
-
-    # lora
+    # load lora
+    ctx.pipe.unet.set_attn_processor(AttnProcessor2_0())
     ctx.pipe.unload_lora_weights()
-    ctx.pipe.unet.set_attn_processor(AttnProcessor2_0()) # unload lora (previously)
-
     if ctx.lora:
         load_lora_weights("default")
     else:
-        ctx.pipe.enable_attention_slicing(1)    # low vram usage (auto|max|8)
+        ctx.pipe.enable_attention_slicing(1) # low vram usage (auto|max|8)
+
+    # load scheduler
+    load_scheduler()
+
+    # load embeds
+    load_hidden_states()
 
 
 # Inference
 
 
-def latent_preview_step(i, unet, scheduler, latents, timesteps):
+def latents_preview_step(idx, ts, unet, scheduler, latents):
     if ctx.model == "sd":
-        with torch.no_grad():
-            noise_pred = unet(latents, timesteps, encoder_hidden_states=ctx.text_embeds[0]).sample
-
-        # not fully compatible with discretes (lms, euler, euler_anc)
-        alpha_t = torch.sqrt(scheduler.alphas_cumprod)
-        sigma_t = torch.sqrt(1 - scheduler.alphas_cumprod)
-        a_t, s_t = alpha_t[int(timesteps.tolist())], sigma_t[int(timesteps.tolist())]
-        latents = (latents - s_t * noise_pred) / a_t
-
+        latent_model_input = scheduler.scale_model_input(latents, ts)
+        noise_pred = unet(latent_model_input, ts, encoder_hidden_states=ctx.hidden_states[0]).sample
+        
+        if not hasattr(scheduler, 'sigmas'): # non-discretes
+            alpha_t = torch.sqrt(scheduler.alphas_cumprod[ts])
+            beta_t = torch.sqrt(1 - scheduler.alphas_cumprod[ts])
+            latents = (latents - beta_t * noise_pred) / alpha_t
+        else: # discretes
+            sigma = scheduler.sigmas[idx + 1]
+            latents = latents - sigma * noise_pred
+            
     elif ctx.model == "xl":
-        pass # TODO: incompatible unet added_cond_kwargs
+        # TODO: unet raise error: added_cond_kwargs={'text_embeds','time_ids'}
+        pass
     
+    latents = 1 / ctx.tae.config.scaling_factor * latents
     decoded = ctx.tae.decode(latents).sample
     image = ctx.vae_processor.postprocess(decoded)[0]
-    image.save(ROOT + '/preview.jpg') # + i
+    image.save(PREVIEW, format="BMP")
+    ctx.captures.append(image)
 
 
-def callback_on_step_end(pipe, i, ts, callback_kwargs):
+def callback_on_step_end(pipe, idx, ts, callback_kwargs):
     #pipe._interrupt = True
-    latent_preview_step(i, pipe.unet, pipe.scheduler, callback_kwargs["latents"], ts)
+    if ctx.preview:
+        latents = callback_kwargs["latents"]
+        with torch.no_grad():
+            latents_preview_step(idx, ts, pipe.unet, pipe.scheduler, latents)
     return callback_kwargs
 
 
 def get_images(pipe, generator):
+    ctx.captures = []
+
     cross = None
     if ctx.lora:
         cross = { "scale": ctx.lora_scale }
@@ -578,7 +620,9 @@ def get_images(pipe, generator):
         image = ctx.image_init,
         mask_image = ctx.image_mask,
         prompt = ctx.prompt,
+        #prompt_2 = ctx.prompt,
         negative_prompt = ctx.negative,
+        #negative_prompt_2 = ctx.negative,
         width = ctx.width,
         height = ctx.height,
         num_inference_steps = ctx.steps,
@@ -586,24 +630,24 @@ def get_images(pipe, generator):
         strength = ctx.strength,
         lora_scale = ctx.lora_scale, # applied to all LoRA layers of the text encoder
         num_images_per_prompt = 1,
-        eta = 0.0,
+        eta = 0.0, #def: 0.0 for DDIM only
         generator = generator,
-        latents = None,
-        prompt_embeds = None,
-        negative_prompt_embeds = None,
-        output_type = "pil", # "str"
+        output_type = "pil",
         return_dict = True,
+        cross_attention_kwargs = cross,
+        #guidance_rescale = 0.0, #def: 0.0
         callback_on_step_end = callback_on_step_end,
-        cross_attention_kwargs = cross)
-        #guidance_rescale = 0.7) #def: 0.7
+        callback_on_step_end_tensor_inputs = ['latents']) # 'prompt_embeds'        
 
 
 def inference():
-    load_scheduler()
-    load_text_embeds()
+    ctx.width = round(ctx.width / 8) * 8
+    ctx.height = round(ctx.height / 8) * 8
 
     if ctx.steps * ctx.strength < 1:
         ctx.steps = math.ceil(1 / max(0.1, ctx.strength))
+
+    ctx.pipe.scheduler.set_timesteps(ctx.steps)
 
     seed = ctx.seed
     if seed == -1:
@@ -616,9 +660,8 @@ def inference():
     if ctx.image_mask:
         ctx.image_mask = prepare_input_image(ctx.image_mask)
 
-    ctx.width = round(ctx.width / 8) * 8
-    ctx.height = round(ctx.height / 8) * 8
-    generator = torch.Generator(ctx.device).manual_seed(seed)
+    generator = torch.Generator("cpu").manual_seed(seed)
+
     pipe_name = "undefined"
     pipe = None
 
@@ -675,16 +718,16 @@ def inference():
         pipe_name = "txt2img"
         pipe = ctx.pipe
 
-    print(f"[{ctx.model.upper()}, {pipe_name}, {ctx.scheduler}, {ctx.steps}, {ctx.guidance}, {ctx.strength}, {seed}]")
-    images = get_images(pipe, generator)
-    img = images[0][0]
+    print(f"[{ctx.model.upper()}, {pipe_name}, {ctx.width}x{ctx.height}, {ctx.scheduler}, {ctx.steps}, {ctx.guidance}, {ctx.strength}, {seed}]")
+    img = get_images(pipe, generator)[0][0]
+    del pipe
+    del generator
 
     metadata = PngInfo()
     metadata.add_text(METADATAKEY, json.dumps({
         "model": ctx.model.upper(),
         "pipeline": pipe_name,
         "checkpoint": ctx.checkpoint,
-        "upscaler": ctx.upscaler,
         "vae": ctx.vae,
         "lora": ctx.lora,
         "lora_scale": ctx.lora_scale,
@@ -710,7 +753,7 @@ def inference():
         img.save(f"{savepath}.png", pnginfo=metadata)
         print(Fore.GREEN + f"{savepath}.png")
 
-    out_base64 = base64Encode(img, "png")
+    out_base64 = base64_encode(img, "png")
 
     if ctx.upscale:
         img = inference_realesrgan(ctx.upscaler, img)
@@ -725,6 +768,11 @@ def inference():
     if not ctx.savefile:
         print(Fore.GREEN + 'sent')
 
+    if ctx.captures:
+        ctx.captures.append(img)
+        ctx.captures[0].save(PREVIEWANIM, save_all=True, append_images=ctx.captures[1:], lossless=False, quality=100, method=4, exact=False, duration=300, loop=0)
+
+    ctx.captures = []
     del img
     del metadata
     return out_base64
@@ -760,9 +808,8 @@ def inference_realesrgan_standalone(model_path, image, outpath):
 
 
 def create(doinference, **kwargs):
-    ctx.model = kwargs.pop("model", ctx.model)
-    ctx.checkpoint = kwargs.pop("checkpoint", ctx.checkpoint)
     ctx.upscaler = kwargs.pop("upscaler", ctx.upscaler)
+    ctx.checkpoint = kwargs.pop("checkpoint", ctx.checkpoint)
     ctx.vae = kwargs.pop("vae", ctx.vae)
     ctx.lora = kwargs.pop("lora", ctx.lora)
     ctx.lora_scale = kwargs.pop("lora_scale", ctx.lora_scale)
@@ -783,6 +830,7 @@ def create(doinference, **kwargs):
     ctx.outpath = kwargs.pop("outpath", ctx.outpath)
     ctx.filename = kwargs.pop("filename", ctx.filename)
     ctx.batch = kwargs.pop("batch", ctx.batch)
+    ctx.preview = kwargs.pop("preview", ctx.preview)
 
     if not path_checker():
         return False
@@ -808,11 +856,10 @@ class EchoServer:
             match ws["key"]:
                 case "open":
                     await client.send(json.dumps({
+                        "upscalers": ctx.configs["upscalers"],
                         "checkpoints": ctx.configs["checkpoints"],
                         "vaes": ctx.configs["vaes"],
                         "loras": ctx.configs["loras"],
-                        "upscalers": ctx.configs["upscalers"],
-                        "model": ctx.configs["model"],
                         "scheduler": ctx.configs["scheduler"],
                         "width": ctx.configs["width"],
                         "height": ctx.configs["height"]
@@ -823,9 +870,8 @@ class EchoServer:
                 case "create":
                     data = ws["val"]
                     is_ok = create(False,
-                        model = data["model"],
-                        checkpoint = data["checkpoint"],
                         upscaler = data["upscaler"],
+                        checkpoint = data["checkpoint"],
                         vae = data["vae"],
                         lora = data["lora"],
                         lora_scale = data["lora_scale"],
@@ -845,7 +891,8 @@ class EchoServer:
                         onefile = data["onefile"],
                         outpath = data["outpath"],
                         filename = data["filename"],
-                        batch = data["batch"])
+                        batch = data["batch"],
+                        preview = data["preview"])
 
                     if is_ok:
                         for _ in range(1, ctx.batch + 1):
@@ -859,6 +906,7 @@ class EchoServer:
                                 clear_cache()
                             except KeyboardInterrupt:
                                 await client.send('')
+                                clear_cache()
                                 log.info("interrupted.")
                     else:
                         await client.send('')
@@ -904,8 +952,6 @@ class EchoServer:
 
 
 def main(args):
-    load_configs()
-
     args = arg_parser(args)
 
     if args.metadata != None:
@@ -927,9 +973,8 @@ def main(args):
         sys.exit(0)
 
     create(True,
-        model = args.model,
-        checkpoint = args.checkpoint,
         upscaler = args.upscaler,
+        checkpoint = args.checkpoint,
         vae = args.vae,
         lora = args.lora,
         lora_scale = args.lorascale,
@@ -949,13 +994,14 @@ def main(args):
         onefile = args.onefile,
         outpath = args.outpath,
         filename = args.filename,
-        batch = args.batch)
+        batch = args.batch,
+        preview = args.preview)
 
 
 if __name__ == '__main__':
     try:
         print()
-        print(Fore.MAGENTA + "Mental Diffusion 0.6.9")
+        print(Fore.MAGENTA + "Mental Diffusion 0.7.0")
 
         if not hf_cache_check("openai/clip-vit-large-patch14", "config.json"):
             ctx.hf_cache_exist = False
@@ -964,6 +1010,8 @@ if __name__ == '__main__':
             ctx.hf_cache_exist = False
             print("Warning: 'laion/CLIP-ViT-bigG-14-laion2B-39B-b160k' not found and will be downloaded.")
 
+        reset_preview(256, 256)
+        load_configs()
         init()
         main(sys.argv[1:])
 

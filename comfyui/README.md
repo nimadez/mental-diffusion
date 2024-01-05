@@ -1,10 +1,10 @@
-## Mental Diffusion ComfyUI Bridge
+## ComfyUI Bridge for VS Code
 
-<img src="media/screenshot.jpg">
+<img src="media/screenshot.jpg"><br>
+<sub>* *Splash image is Google TPU v5e*</sub>
 
 ## Features
 - [x] VS Code Extension
-- [x] ComfyUI Bridge
 - [x] Text to Image
 - [x] Image to Image
 - [x] Image Inpainting
@@ -59,14 +59,12 @@ main.py --enable-cors-header --preview-method auto
 ```
 
 ## Quickstart
-- The basic workflow is based on dragging images and dropping them to the desired slot
 - MD uses PNG files to save and load metadata
 - MD can load single or multiple PNG files
 - Your data is safe and can be loaded again as long as "Autosave File" is checked
 - You can guide the image-to-image using brush strokes and color adjustments
-- To create an airbrush effect, decrease the brush size and increase the softness
 - To create a mask image, draw using the Mask tool or check the "All mask mode"
-- The upscaled image is saved to the file and is not returned to the MD
+- The upscaled image is saved to the file and is not returned
 - LoRA and VAE are supported by all workflows
 
 #### The canvas consists of 3 layers
@@ -174,7 +172,6 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 - [Hugging Face](https://huggingface.co/)
 - [Stability-AI](https://github.com/Stability-AI)
-- [Civitai](https://civitai.com/)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
 - [meta-png](https://github.com/lucach/meta-png)
 - [Google TPU v5e demo](https://huggingface.co/spaces/google/sdxl)

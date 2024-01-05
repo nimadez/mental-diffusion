@@ -2,39 +2,38 @@
 
 Stable diffusion command-line interface
 
-```Version 0.6.9 alpha```
+```Version 0.7.0 alpha```
 
 [Downloads](https://github.com/nimadez/mental-diffusion/releases)<br>
-[ComfyUI Bridge for VS Code](https://github.com/nimadez/mental-diffusion/tree/main/comfyui)<br>
 [Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG.md)<br>
 [Known Issues](https://github.com/nimadez/mental-diffusion#known-issues)
 
-> Everything gets complicated from this part down ↓, if you want less headache you can use comfyui-bridge ↑
+> [ComfyUI Bridge for VS Code](https://github.com/nimadez/mental-diffusion/tree/main/comfyui) doesn't get many updates, but you can download it.
 
 <img src="media/splash.jpg">
 
 - Command-line interface
 - Websockets server
 - Websockets client ```electron```
-- SD, SDXL, SDXL-Turbo, VAE, LoRA
+- SD, SDXL, SDXL-Turbo, VAE, LoRA, TAESD
 - Text-to-Image, Image-to-Image, Inpaint
-- Latent preview (TAESD/XL)
+- Latents preview (BMP/WebP)
 - Upscaler realesrgan 4x
 - Read and write PNG with metadata
 - Optimized for low specs
+- Support CPU and GPU
 
 ```
 --help                     show this help message and exit
 
---model      -mod   str    sd/xl, define model type, (def: config.json)
+--upscaler   -u     str    set realesrgan by file name or path (def: config.json)
 --checkpoint -c     str    set checkpoint by file name or path (def: config.json)
---upscaler   -u     str    optional realesrgan by file name or path (def: config.json)
 --vae        -v     str    optional vae by file name or path (def: None)
 --lora       -l     str    optional lora by file name or path (def: None)
 --lorascale  -ls    float  0.0-1.0, lora scale (def: 1.0)
---scheduler  -sc    str    ddpm, ddim, pndm, lms, euler, euler_anc (def: config.json)
+--scheduler  -sc    str    ddim, ddpm, lcm, pndm, euler_anc, euler, lms (def: config.json)
 --prompt     -p     str    positive prompt text input (def: sample)
---negative   -n     str    negative prompt text input (def: sample)
+--negative   -n     str    negative prompt text input (def: empty)
 --width      -w     int    width value must be divisible by 8 (def: config.json)
 --height     -h     int    height value must be divisible by 8 (def: config.json)
 --seed       -s     int    seed number, -1 to randomize (def: -1)
@@ -49,6 +48,7 @@ Stable diffusion command-line interface
 --outpath    -o     str    /path-to-directory (def: .output)
 --filename   -f     str    filename prefix (no png extension)
 --batch      -b     int    enter number of repeats to run in batch (def: 1)
+--preview    -pv    bool   stepping is slower with the preview (def: True)
 
 --server     -serv  int    start websockets server (port is required)
 --metadata   -meta  str    /path-to-image.png, extract metadata from PNG
@@ -64,65 +64,24 @@ inpaint: when the 'image' and 'mask' are not empty, the pipeline switches to inp
 * To load SDXL on 3.5 GB, you need at least 16 GB memory and virtual-memory paging
 ```
 
-```
-[config.json]
-define models and startup values
-
-{
-    "http_proxy": null,
-    
-    "checkpoints": [
-        "/path-to/checkpoint1.safetensors",
-        "/path-to/checkpoint2.safetensors",
-        ...
-    ],
-    
-    "vaes": [
-        "/path-to/vae1.safetensors",
-        "/path-to/vae2.safetensors",
-        ...
-    ],
-
-    "loras": [
-        "/path-to/lora1.safetensors",
-        "/path-to/lora2.safetensors",
-        ...
-    ],
-
-    "upscalers": [
-        "/path-to/realesrgan/RealESRGAN_x4plus.pth",
-        "/path-to/realesrgan/RealESRGAN_x4plus_anime_6B.pth"
-    ],
-
-    "model": "xl", // sd or xl
-    "scheduler": "euler_anc",
-    "width": 1024,
-    "height": 1024
-}
-```
-
 ### Websockets server
 <img src="media/server.gif">
-
-### Websockets client
-<img src="media/client.jpg">
 
 ### Batch
 <img src="media/batch.gif">
 
+### Websockets client
+<img src="media/client.jpg">
+
+### Latents Preview
+<img src="media/preview.gif">
+
 ## Known Issues
 ```
-Latent preview is not fully supported by discrete schedulers and SDXL:
-- DDPMScheduler                     realtime SD, basic SDXL
-- DDIMScheduler                     realtime SD, basic SDXL
-- PNDMScheduler                     realtime SD, basic SDXL
-- LMSDiscreteScheduler              basic SD/SDXL
-- EulerDiscreteScheduler            basic SD/SDXL
-- EulerAncestralDiscreteScheduler   basic SD/SDXL
-* Probably, in the next versions of diffusers, this problem will be solved by itself.
+:: Latents preview is not fully supported for SDXL
 
-TypeError: StableDiffusionPipeline.__init__() got an unexpected keyword argument 'safety_checker'
-- The selected --model (sd/xl) does not match the checkpoint
+:: Stepping is slower with the preview
+Reminder: one solution is to set "pipe._guidance_scale" to 0.0 after 40%
 ```
 
 ## History
@@ -151,3 +110,5 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [Electron](https://www.electronjs.org/)
 
 <img src="media/ending.jpg">
+
+<img src="media/extra.jpg">

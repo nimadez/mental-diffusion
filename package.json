@@ -1,6 +1,6 @@
 {
     "name": "mental-diffusion",
-    "version": "0.6.9",
+    "version": "0.7.0",
     "description": "Stable diffusion command-line interface",
     "main": "main.js",
     "scripts": {
