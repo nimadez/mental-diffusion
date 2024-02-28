@@ -1,0 +1,25 @@
+{
+    "name": "mental-diffusion",
+    "displayName": "Mental Diffusion",
+    "version": "0.7.4",
+    "description": "Stable diffusion command-line interface",
+    "homepage": "https://nimadez.github.io/mental-diffusion",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nimadez/mental-diffusion"
+	},
+	"bugs": {
+		"url": "https://github.com/nimadez/mental-diffusion/issues"
+	},
+    "publisher": "nimadez",
+	"author": "@nimadez",
+	"license": "MIT",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "devDependencies": {
+        "electron": "^28.0.0",
+        "meta-png": "^1.0.6"
+    }
+}

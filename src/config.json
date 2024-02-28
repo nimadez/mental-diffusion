@@ -1,0 +1,21 @@
+{
+    "http_proxy": null,
+    "use_cpu": false,
+
+    "checkpoints": [
+        "/../../../ML/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors"
+    ],
+    
+    "vaes": [
+        "/../../../ML/stable-diffusion/vae/TRCVAE.safetensors"
+    ],
+
+    "loras": [
+        "/../../../ML/stable-diffusion/loras/WorldofOrigami.safetensors"
+    ],
+
+    "model": "sd",
+    "scheduler": "ddim",
+    "width": 512,
+    "height": 512
+}
