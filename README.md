@@ -21,9 +21,9 @@ Stable diffusion command-line interface
 - Support CPU and GPU
 
 ## Installation
+- Install Electron
 - Install Python 3.11.x
 - Install Python packages *(see installer.py or requirements.txt)*
-- Install Electron
 ```
 git clone https://github.com/nimadez/mental-diffusion.git
 edit src/config.json
@@ -43,11 +43,11 @@ python mdx.py -p "prompt" -mod xl -c /sdxl.safetensors -w 1024 -h 1024 -st 30 -g
 ```
 ##### These models are downloaded as needed after launch:
 ```
+madebyollin/taesd
+madebyollin/taesdxl
 RealESRGAN_x2plus.pth
 RealESRGAN_x4plus.pth
 RealESRGAN_x4plus_anime_6B.pth
-madebyollin/taesd
-madebyollin/taesdxl
 openai/clip-vit-large-patch14 (diffusers, 1.7 GB)
 laion/CLIP-ViT-bigG-14-laion2B-39B-b160k (diffusers)
 ```

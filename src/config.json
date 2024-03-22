@@ -3,7 +3,10 @@
     "use_cpu": false,
 
     "checkpoints": [
-        "/../../../ML/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors"
+        "/../../../ML/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors",
+        "/../../../ML/stable-diffusion/checkpoints/dreamshaper_8.safetensors",
+        "/../../../ML/stable-diffusion/checkpoints/xl/OpenDalleV1.1.safetensors",
+        "/../../../ML/stable-diffusion/checkpoints/xl/sd_xl_turbo_1.0_fp16.safetensors"
     ],
     
     "vaes": [
@@ -11,7 +14,9 @@
     ],
 
     "loras": [
-        "/../../../ML/stable-diffusion/loras/WorldofOrigami.safetensors"
+        "/../../../ML/stable-diffusion/loras/WorldofOrigami.safetensors",
+        "/../../../ML/stable-diffusion/loras/ral-polygon-sd15.safetensors",
+        "/../../../ML/stable-diffusion/loras/ral-polygon-sdxl.safetensors"
     ],
 
     "model": "sd",
