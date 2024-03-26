@@ -7,8 +7,8 @@ set RES=256
 set SEED=18736534
 set STEP=10
 set GUID=1
-set VAE=/../../../Models/stable-diffusion/vae/TRCVAE.safetensors
-set LORA=/../../../Models/stable-diffusion/loras/WorldofOrigami.safetensors
+set VAE=/../../../ML/stable-diffusion/vae/TRCVAE.safetensors
+set LORA=/../../../ML/stable-diffusion/loras/WorldofOrigami.safetensors
 
 echo [txt2img]
 python ../src/mdx.py -s %SEED% -w %RES% -h %RES% -st %STEP% -g %GUID% -f 001_txt2img_sd

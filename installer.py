@@ -36,12 +36,9 @@ def main():
     print("Installing [websockets]")
     os.system("python -m pip install --no-warn-script-location websockets==12.0")
     
-    print("Installing [opencv-python]")
-    os.system("python -m pip install --no-warn-script-location opencv-python")
+    print("Installing [omegaconf]")
+    os.system("python -m pip install --no-warn-script-location omegaconf==2.3.0")    
 
-    print("Installing [opencv-contrib-python]")
-    os.system("python -m pip install --no-warn-script-location opencv-contrib-python")
-    
 
 if __name__== "__main__":
     if not sys.version.startswith("3.11"):
