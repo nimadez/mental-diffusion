@@ -463,7 +463,9 @@ function packNumberAs4Bytes(t){let e=new ArrayBuffer(4),n=new DataView(e);return
 
     const client = new WebsocketClient(port.value);
 
-    generate.onclick = () => {
+    function client_generate() {
+        if (client.isWorking) return;
+        
         previewInterval = setInterval(() => {
             previewImage.src = "assets/preview.bmp?" + new Date().getTime();
             previewImage.onload = () => {
@@ -473,6 +475,10 @@ function packNumberAs4Bytes(t){let e=new ArrayBuffer(4),n=new DataView(e);return
         }, 1000 / 30);
 
         client.ws_generate();
+    }
+
+    generate.onclick = () => {
+        client_generate();
     };
 
     interrupt.onclick = () => {
@@ -648,7 +654,7 @@ function packNumberAs4Bytes(t){let e=new ArrayBuffer(4),n=new DataView(e);return
 
     document.addEventListener("keydown", (ev) => {
         if (ev.ctrlKey && ev.key === 'Enter')
-            if (client.isConnect) client.ws_generate();
+            client_generate();
     }, false);
 
     document.addEventListener('pointerdown', (ev) => {
