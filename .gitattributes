@@ -1,0 +1,4 @@
+* linguist-vendored
+*.py linguist-vendored=false
+*.js linguist-vendored=false
+*.sh linguist-vendored=false

@@ -1,0 +1,149 @@
+{
+	"name": "mental-diffusion",
+	"displayName": "Mental Diffusion",
+	"description": "ComfyUI Bridge for VS Code",
+	"icon": "media/appicon.png",
+	"version": "0.6.9",
+	"publisher": "nimadez",
+	"author": "@nimadez",
+	"license": "MIT",
+	"galleryBanner": {
+		"color": "#1B1F23",
+		"theme": "dark"
+	},
+	"homepage": "https://nimadez.github.io/mental-diffusion",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nimadez/mental-diffusion"
+	},
+	"bugs": {
+		"url": "https://github.com/nimadez/mental-diffusion/issues"
+	},
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"categories": [
+		"Machine Learning"
+	],
+	"keywords": [
+		"stable-diffusion",
+		"comfyui",
+		"webui"
+	],
+	"activationEvents": [
+		"onCommand:md.start",
+		"onCommand:md.comfy",
+		"onCommand:md.webui"
+	],
+	"main": "./src/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "md.start",
+				"title": "MD",
+				"category": "Mental Diffusion"
+			},
+			{
+				"command": "md.comfy",
+				"title": "MDC",
+				"category": "Mental Diffusion"
+			},
+			{
+				"command": "md.webui",
+				"title": "MDU",
+				"category": "Mental Diffusion"
+			}
+		],
+		"menus": {
+			"editor/title/run": [
+				{
+					"command": "md.start",
+					"group": "mdmenu",
+					"when": "config.mental-diffusion.menuMD"
+				},
+				{
+					"command": "md.comfy",
+					"group": "mdmenu",
+					"when": "config.mental-diffusion.menuMDC"
+				},
+				{
+					"command": "md.webui",
+					"group": "mdmenu",
+					"when": "config.mental-diffusion.menuMDU"
+				}
+			]
+		},
+		"configuration": {
+			"type": "object",
+			"title": "Mental Diffusion",
+			"properties": {
+				"mental-diffusion.comfyPath": {
+					"order": 1,
+					"type": "string",
+					"default": "D:/Apps/ComfyUI/ComfyUI",
+					"description": "ComfyUI Source Path"
+				},
+				"mental-diffusion.comfyPython": {
+					"order": 2,
+					"type": "string",
+					"default": "D:/Apps/ComfyUI/python_embeded/python.exe",
+					"description": "ComfyUI Python Executable Path"
+				},
+				"mental-diffusion.comfyArguments": {
+					"order": 3,
+					"type": "string",
+					"default": "",
+					"description": "--cpu --gpu-only --novram --lowvram --normalvram --highvram --force-fp16 --force-fp32 --listen --disable-metadata --windows-standalone-build"
+				},
+				"mental-diffusion.output": {
+					"order": 4,
+					"type": "string",
+					"default": ".output",
+					"description": "Enter absolute path to image output directory"
+				},
+				"mental-diffusion.workflows": {
+					"order": 5,
+					"type": "string",
+					"default": ".workflows",
+					"description": "Enter absolute path to custom workflows directory"
+				},
+				"mental-diffusion.styles": {
+					"order": 6,
+					"type": "string",
+					"default": "configs/styles.json",
+					"description": "Enter absolute path to styles.json file"
+				},
+				"mental-diffusion.splash": {
+					"order": 7,
+					"type": "string",
+					"default": "media/splash.png",
+					"description": "Enter absolute path to splash image (PNG 1024x1024)"
+				},
+				"mental-diffusion.menuMD": {
+					"order": 20,
+					"type": "boolean",
+					"default": true,
+					"description": "Enable editor/run 'MD' button"
+				},
+				"mental-diffusion.menuMDC": {
+					"order": 21,
+					"type": "boolean",
+					"scope": "resource",
+					"default": true,
+					"description": "Enable editor/run 'MDC' button"
+				},
+				"mental-diffusion.menuMDU": {
+					"order": 22,
+					"type": "boolean",
+					"scope": "resource",
+					"default": true,
+					"description": "Enable editor/run 'MDU' button"
+				}
+			}
+		}
+	},
+	"scripts": {},
+	"publishConfig": {
+		"access": "public"
+	}
+}
