@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-VER = "0.8.5" # https://github.com/nimadez/mental-diffusion
+VER = "0.8.6" # https://github.com/nimadez/mental-diffusion
 
 
 USER = __import__('getpass').getuser()
@@ -8,7 +8,7 @@ PROXY = None
 OFFLINE = False
 USE_CPU = False
 OUTPUT = f"/home/{USER}/.mdx"
-SAVE_ANIM = True
+SAVE_ANIM = False
 MODEL_TYPE = "xl"
 CHECKPOINT = f"/media/{USER}/storage/sd/model_sdxl.safetensors"
 WIDTH, HEIGHT = 768, 768
@@ -38,7 +38,7 @@ from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers import (AutoencoderKL, AutoencoderTiny,
     StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, StableDiffusionInpaintPipeline,
     StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline,
-    DDIMScheduler, DDPMScheduler, LCMScheduler, PNDMScheduler, EulerAncestralDiscreteScheduler, EulerDiscreteScheduler, LMSDiscreteScheduler)
+    DDIMScheduler, DDPMScheduler, EulerDiscreteScheduler, EulerAncestralDiscreteScheduler, LCMScheduler, LMSDiscreteScheduler, PNDMScheduler)
 
 
 def arg_parser(args):
@@ -63,7 +63,7 @@ def arg_parser(args):
     parser.add_argument('-f',  '--filename', type = str, default = "img_{seed}", help = "filename prefix without .png extension, add {seed} to be replaced (def: img_{seed})")
     parser.add_argument('-no', '--number', type = int, default = 1, help = "number of images to generate per prompt (def: 1)")
     parser.add_argument('-b',  '--batch', type = int, default = 0, help = "number of repeats to run in batch, --seed -1 to randomize")
-    parser.add_argument('-pv', '--preview', action = 'store_true', help = "image and animation, stepping is slower with preview enabled (def: no preview)")
+    parser.add_argument('-pv', '--preview', action = 'store_true', help = "stepping is slower with preview enabled (def: no preview)")
     parser.add_argument('-lv', '--lowvram', action = 'store_true', help = "slower if you have enough VRAM, automatic on 4GB cards (def: no lowvram)")
     parser.add_argument('-meta', '--metadata', type = str, default = None, help = "image.png, extract metadata from png")    
     return parser.parse_args(args)
@@ -83,61 +83,59 @@ class MDX():
             self.device = "cpu"
 
 
-    def load_taesd(self, t):
-        if t == "sd": self.tae = AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=self.dtype)
-        if t == "xl": self.tae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=self.dtype)
-        if self.device != "cpu":
-            self.tae = self.tae.half().eval().requires_grad_(False).to(self.device, self.dtype)
-            self.tae.enable_slicing()
-            self.tae.enable_tiling()
-
-
     def auto_pipeline(self, variant, pipe=None):
         if not self.md.image and not self.md.mask:
             if self.md.type == "sd": pipe = StableDiffusionPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
             elif self.md.type == "xl": pipe = StableDiffusionXLPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
+            self.md.pipeline = "txt2img"
         elif self.md.image and not self.md.mask:
             if self.md.type == "sd": pipe = StableDiffusionImg2ImgPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
             elif self.md.type == "xl": pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
-            print("[img2img]")
+            self.md.pipeline = "img2img"
         elif self.md.image and self.md.mask:
             if self.md.type == "sd": pipe = StableDiffusionInpaintPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
             elif self.md.type == "xl": pipe = StableDiffusionXLInpaintPipeline.from_single_file(self.md.checkpoint, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True)
-            print("[inpaint]")
+            self.md.pipeline = "inpaint"
         return pipe
 
 
     def load_pipeline(self, variant="fp16"):
+        if self.md.preview:
+            if self.md.type == "sd": self.tae = AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=self.dtype)
+            if self.md.type == "xl": self.tae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=self.dtype)
+        
         print("Loading checkpoint:", Fore.CYAN + os.path.basename(self.md.checkpoint))
         pipe = self.auto_pipeline(variant)
         if pipe:
             if self.md.vae:
                 print("Loading vae:", Fore.CYAN + os.path.basename(self.md.vae))
                 pipe.vae = AutoencoderKL.from_single_file(self.md.vae, torch_dtype=self.dtype, variant=variant, local_files_only=False, use_safetensors=True).to(self.device, self.dtype)
-            
+                
             if self.md.lora:
                 print("Loading lora:", Fore.CYAN + os.path.basename(self.md.lora))
                 pipe.load_lora_weights(os.path.dirname(self.md.lora), weight_name=os.path.basename(self.md.lora), adapter_name="default")
 
-            pipe.unet.set_attn_processor(AttnProcessor2_0())
-            pipe.vae.decoder.mid_block.attentions[0]._use_2_0_attn = True
             pipe.enable_sequential_cpu_offload() if self.device != "cpu" and self.md.lowvram else pipe.to(self.device, self.dtype)
             pipe.enable_attention_slicing(1)
             if self.device != "cpu":
                 pipe.enable_vae_slicing()
                 pipe.enable_vae_tiling()
+                if self.tae:
+                    self.tae = self.tae.half().eval().requires_grad_(False).to(self.device, self.dtype)
+                    self.tae.enable_slicing()
+                    self.tae.enable_tiling()
         return pipe
 
 
-    def load_scheduler(self, pipe, name):
-        match name:
-            case "ddim": pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
-            case "ddpm": pipe.scheduler = DDPMScheduler.from_config(pipe.scheduler.config)
-            case "lcm": pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
-            case "pndm": pipe.scheduler = PNDMScheduler.from_config(pipe.scheduler.config)
-            case "eulera": pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
-            case "euler": pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-            case "lms": pipe.scheduler = LMSDiscreteScheduler.from_config(pipe.scheduler.config)
+    def load_scheduler(self, config):
+        match self.md.scheduler:
+            case "ddim": return DDIMScheduler.from_config(config)
+            case "ddpm": return DDPMScheduler.from_config(config)
+            case "euler": return EulerDiscreteScheduler.from_config(config)
+            case "eulera": return EulerAncestralDiscreteScheduler.from_config(config)
+            case "lcm": return LCMScheduler.from_config(config)            
+            case "lms": return LMSDiscreteScheduler.from_config(config, use_karras_sigmas=True)
+            case "pndm": return PNDMScheduler.from_config(config)
 
 
     def callback_on_step_end(self, pipe, idx, ts, callback_kwargs):
@@ -158,29 +156,28 @@ class MDX():
             latents = 1 / self.tae.config.scaling_factor * latents
             decoded = self.tae.decode(latents).sample
             image = pipe.image_processor.postprocess(decoded)[0]
-            image.save(OUTPUT + "/preview.bmp", format="BMP")
+            image.save(OUTPUT + "/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
             self.frames.append(image)
         return callback_kwargs
 
 
-    def inference(self):
+    def inference(self, pipe):
         width, height = round(self.md.width / 8) * 8, round(self.md.height / 8) * 8
         seed, steps, image, mask = self.md.seed, self.md.steps, self.md.image, self.md.mask
         if seed == -1:
             seed = random.randrange(0, sys.maxsize)
         if steps * self.md.strength < 1:
             steps = math.ceil(1 / max(0.1, self.md.strength))
-        if self.md.image:
-            image = Image.open(self.md.image).convert("RGB")
+        if image:
+            image = Image.open(image).convert("RGB")
             width, height = image.size
             print("Load image:", Fore.CYAN + self.md.image)
-        if self.md.mask:
-            mask = Image.open(self.md.mask).convert("RGB")
+        if mask:
+            mask = Image.open(mask).convert("RGB")
             print("Load mask:", Fore.CYAN + self.md.mask)
 
-        pipe = self.load_pipeline()
         if pipe:
-            self.load_scheduler(pipe, self.md.scheduler)
+            pipe.scheduler = self.load_scheduler(pipe.scheduler.config)
             pipe.scheduler.set_timesteps(steps)
             generator = torch.Generator("cpu").manual_seed(seed)
 
@@ -189,7 +186,7 @@ class MDX():
                 self.encoded_prompt = pipe.encode_prompt(device=self.device, prompt=self.md.prompt, num_images_per_prompt=self.md.number, do_classifier_free_guidance=self.md.guidance > 1.0)
                 self.frames = []
 
-            print(f"[{self.md.type}, {width}x{height}, {self.md.scheduler}, {steps}, {self.md.guidance}, {self.md.strength}, {self.md.lorascale}, {seed}]")
+            print(f"[{self.md.type}, {self.md.pipeline}, {width}x{height}, {self.md.scheduler}, {steps}, {self.md.guidance}, {self.md.strength}, {self.md.lorascale}, +{self.md.number-1}, {seed}]")
             images = pipe(output_type="pil",
                 prompt = self.md.prompt,
                 negative_prompt = self.md.negative,
@@ -208,12 +205,13 @@ class MDX():
                 callback_on_step_end_tensor_inputs = ['latents'])[0]
 
             pngInfo = PngInfo()
-            pngInfo.add_text("MDX", json.dumps({ "version": VER,
-                "type": self.md.type, "checkpoint": os.path.abspath(self.md.checkpoint), "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
+            pngInfo.add_text("MDX", json.dumps({ "version": VER, "type": self.md.type, "pipeline": self.md.pipeline,
+                "checkpoint": os.path.abspath(self.md.checkpoint), "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
                 "scheduler": self.md.scheduler, "seed": seed, "steps": steps, "guidance": self.md.guidance, "strength": self.md.strength, "lorascale": self.md.lorascale,
                 "prompt": self.md.prompt, "negative": self.md.negative, "image": os.path.abspath(self.md.image) if self.md.image else None, "mask": os.path.abspath(self.md.mask) if self.md.mask else None
             }))
 
+            savepath = None
             for img in images:
                 count = 1
                 filename = self.md.filename.replace("{seed}", str(seed))
@@ -224,29 +222,30 @@ class MDX():
                 img.save(f"{savepath}.png", pnginfo=pngInfo)
                 print("Saved:", Fore.GREEN + f"{savepath}.png")
 
-                if SAVE_ANIM and img == images[0] and self.md.preview:
-                    self.frames.append(img)
-                    self.frames[0].save(f"{savepath}.webp", save_all=True, append_images=self.frames[1:], lossless=False, quality=100, method=4, exact=False, duration=250)
-                    print("Saved:", Fore.GREEN + f"{savepath}.webp")
+            if SAVE_ANIM and self.md.preview:
+                self.frames.append(img)
+                self.frames[0].save(f"{savepath}.webp", append_images=self.frames[1:], save_all=True, lossless=False, quality=100, method=5, duration=300)
+                print("Saved:", Fore.GREEN + f"{savepath}.webp")
         else:
             print(Fore.RED + "ERROR: Failed to load pipeline.")
 
 
     def main(self, args):
         self.md = args
-        if self.md.preview: self.load_taesd(self.md.type)
         if self.device != "cpu" and self.md.type != "sd" and torch.cuda.get_device_properties(self.device).total_memory < 5000000000: self.md.lowvram = True
         print(Fore.MAGENTA + f"MDX {VER}", self.device.upper(), "LV", "PV" if self.md.preview else "") if self.device != "cpu" and self.md.lowvram else print(Fore.MAGENTA + f"MDX {VER}", self.device.upper(), "PV" if self.md.preview else "")
-        
+        self.clear_cache()
+
         try:
+            pipe = self.load_pipeline()
             if self.md.batch > 0:
                 for _ in range(1, self.md.batch + 1):
                     print(Fore.CYAN + f"#{_}")
-                    self.inference()
+                    self.inference(pipe)
                     self.clear_cache()
                     time.sleep(1)
             else:
-                self.inference()
+                self.inference(pipe)
         except KeyboardInterrupt:
             print("(0)")
 
@@ -280,6 +279,8 @@ if __name__== "__main__":
             print(Fore.RED + "ERROR: --vae model does not exists."); sys.exit(1)
         if args.lora and not os.path.exists(args.lora):
             print(Fore.RED + "ERROR: --lora model does not exists."); sys.exit(1)
+        if args.scheduler not in ["ddim", "ddpm", "euler", "eulera", "lcm", "lms", "pndm"]:
+            print(Fore.RED + "ERROR: --scheduler does not exists."); sys.exit(1)
 
         MDX().main(args)
     else:

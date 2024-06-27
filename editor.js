@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-const exec = require('child_process').exec;
+//
+// JavaScript to mdx.py arguments
+// apt install nodejs
+// node editor.js
+//
 
 const data = {
     type: "xl",
@@ -10,8 +14,8 @@ const data = {
     width: 768,
     height: 768,
     seed: -1,
-    steps: 28,
-    guidance: 7.0,
+    steps: 24,
+    guidance: 8.0,
     strength: 1.0,
     lorascale: 1.0,
     image: null,
@@ -24,6 +28,8 @@ const data = {
     preview: true,
     lowvram: false
 };
+
+const exec = require('child_process').exec;
 
 function execute(data) {
     const image = (data.image) ? `-i ${data.image}` : '';

@@ -1,16 +1,18 @@
 ## Mental Diffusion
 
-<img src="media/splash.jpg"><br><sub>*model: zavychromaxl_v80*</sub>
+<img src="media/splash.jpg">
 
 **Fast Stable Diffusion CLI**<br>
 Powered by [Diffusers](https://github.com/huggingface/diffusers)<br>
 Designed for Linux
 
-| MDX | 0.8.5 |
+| MDX | 0.8.6 |
 | ------- | --- |
 | Python | 3.11, 3.12 |
 | Torch | 2.3.1 +cu121 |
 | Diffusers | 0.29.0 |
+
+> 0.8.6: faster startup and preview, no pipeline reloads in batch
 
 ## Features
 - SD, **SDXL**
@@ -35,7 +37,7 @@ Designed for Linux
 git clone https://github.com/nimadez/mental-diffusion
 cd mental-diffusion
 ```
-Automatic installation: *(debian-based distros)*
+Automatic installation: *(debian-based)*
 ```
 apt install python3-pip python3-venv
 sh install-venv.sh
@@ -77,7 +79,7 @@ deactivate
 --filename    -f    str     filename prefix without .png extension, add {seed} to be replaced (def: img_{seed})
 --number      -no   int     number of images to generate per prompt (def: 1)
 --batch       -b    int     number of repeats to run in batch, --seed -1 to randomize
---preview     -pv           image and animation, stepping is slower with preview enabled (def: no preview)
+--preview     -pv           stepping is slower with preview enabled (def: no preview)
 --lowvram     -lv           slower if you have enough VRAM, automatic on 4GB cards (def: no lowvram)
 --metadata    -meta str     image.png, extract metadata from png
 ```
@@ -103,27 +105,37 @@ Preview, cancel and repeat with higher steps:
 mdx -p "prompt" -g 8.0 -st 20 -pv (CTRL+C to cancel)
 mdx -p "prompt" -g 8.0 -st 50 -s 827362763262387
 
-Resume with Img2Img pipeline:
+Improve details with Img2Img pipeline:
 mdx -p "prompt" -st 20 -f myimage
-mdx -p "prompt" -st 80 -i ~/.mdx/myimage.png -sr 0.15
+mdx -p "prompt" -st 80 -i ~/.mdx/image.png -sr 0.15
+
+Content-aware upscaling: (ImageMagick, A1111 hires-fix)
+mdx -p "prompt" -st 20 -w 720 -h 720 -f image
+magick convert ~/.mdx/image.png -resize 200% ~/.mdx/image_up.png
+mdx -p "prompt" -st 20 -i ~/.mdx/image_up.png -sr 0.25
 
 Generate 40 images in less time:
 mdx -p "prompt" -b 10 -no 4
 
+Extract images from WebP animation: (ImageMagick)
+magick convert image.webp jpg
+
 Open preview image in a browser across the LAN:
 cd ~/.mdx && python3 -m http.server 8000
-$ open http://192.168.x.x:8000/preview.bmp
+$ open http://192.168.x.x:8000/preview.jpg
 
 Download HuggingFace cache in a specific path:
 mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
 
 * Enable OFFLINE if you have already downloaded the huggingface cache
-* Preview image saved to ~/.mdx/preview.bmp (update on progress)
-* Preview animation saved to ~/.mdx/filename.webp
+* Enable SAVE_ANIM to save preview animation to ~/.mdx/filename.webp
+* Preview image saved to ~/.mdx/preview.jpg (update on progress)
 ```
 
 ## Tests
-|  | SD CPU | SD GPU | SDXL GPU
+> Tested on Debian Trixie (testing branch) with nvidia driver 535
+
+|  | SD CPU | SD GPU | SDXL GPU |
 | --- | :---: | :---: | :---: |
 | Txt2Img | &check; | &check; | &check; |
 | Img2Img | &check; | &check; | &check; |
@@ -133,13 +145,19 @@ mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
 | Batch | &check; | &check; | &check; |
 | Preview | &check; | &check; | &check; |
 | Low VRAM |  | &check; | &check; |
-> *Tested on Debian Trixie (testing branch) with nvidia driver 535*
+
+> JPEG preview uses more CPU than BMP, but is faster on HDDs because the file size is smaller, PNG takes more CPU time.
+
+|  | JPEG | BMP | PNG |
+| --- | :---: | :---: | :---: |
+| File size | 669KB | 3.1MB | 1.4MB |
+| Save time | 0.006 | 0.029 | 0.329 |
 
 ## Previous Experiments
 > - [Legacy command-line interface and server](https://github.com/nimadez/mental-diffusion/tree/main/legacy/README.md) (diffusers)
 > - [ComfyUI bridge for VS Code extension](https://github.com/nimadez/mental-diffusion/tree/main/comfyui/README.md)
 
-<img src="media/splash_legacy.jpg"><br><sub>*model: OpenDalleV1.1*</sub>
+<img src="media/splash_legacy.jpg">
 
 ## History
 ```
@@ -163,3 +181,7 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [Stability-AI](https://github.com/Stability-AI)
 - [TAESD](https://github.com/madebyollin/taesd)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
+
+##### Splash models
+- [zavychromaxl_v80](https://huggingface.co/misri/zavychromaxl_v80)
+- [OpenDalleV1.1](https://huggingface.co/dataautogpt3/OpenDalleV1.1)
