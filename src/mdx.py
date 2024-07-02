@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-VER = "0.8.6" # https://github.com/nimadez/mental-diffusion
+VER = "0.8.7" # https://github.com/nimadez/mental-diffusion
 
 
 USER = __import__('getpass').getuser()
@@ -7,8 +7,9 @@ DEBUG = False
 PROXY = None
 OFFLINE = False
 USE_CPU = False
+LOWVRAM_MODE = 0 # [0] sequential (slower, fit 4GB) [1] model (faster, more vram)
 OUTPUT = f"/home/{USER}/.mdx"
-SAVE_ANIM = False
+SAVE_ANIM = False # save webp animation
 MODEL_TYPE = "xl"
 CHECKPOINT = f"/media/{USER}/storage/sd/model_sdxl.safetensors"
 WIDTH, HEIGHT = 768, 768
@@ -32,8 +33,7 @@ __import__('colorama').init(autoreset=True)
 import torch, gc, sys, json, math, logging, random, time
 from colorama import Fore
 from argparse import ArgumentParser
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
+from PIL import Image, PngImagePlugin
 from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers import (AutoencoderKL, AutoencoderTiny,
     StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, StableDiffusionInpaintPipeline,
@@ -61,6 +61,7 @@ def arg_parser(args):
     parser.add_argument('-v',  '--vae', type = str, default = None, required = False, help = "vae.safetensors (def: none)")
     parser.add_argument('-l',  '--lora', type = str, default = None, help = "lora.safetensors (def: none)")
     parser.add_argument('-f',  '--filename', type = str, default = "img_{seed}", help = "filename prefix without .png extension, add {seed} to be replaced (def: img_{seed})")
+    parser.add_argument('-o',  '--output', type = str, default = OUTPUT, help = f"image and preview output directory (def: {OUTPUT})")
     parser.add_argument('-no', '--number', type = int, default = 1, help = "number of images to generate per prompt (def: 1)")
     parser.add_argument('-b',  '--batch', type = int, default = 0, help = "number of repeats to run in batch, --seed -1 to randomize")
     parser.add_argument('-pv', '--preview', action = 'store_true', help = "stepping is slower with preview enabled (def: no preview)")
@@ -115,7 +116,9 @@ class MDX():
                 print("Loading lora:", Fore.CYAN + os.path.basename(self.md.lora))
                 pipe.load_lora_weights(os.path.dirname(self.md.lora), weight_name=os.path.basename(self.md.lora), adapter_name="default")
 
-            pipe.enable_sequential_cpu_offload() if self.device != "cpu" and self.md.lowvram else pipe.to(self.device, self.dtype)
+            if LOWVRAM_MODE == 0: pipe.enable_sequential_cpu_offload() if self.device != "cpu" and self.md.lowvram else pipe.to(self.device, self.dtype)
+            else: pipe.enable_model_cpu_offload() if self.device != "cpu" and self.md.lowvram else pipe.to(self.device, self.dtype)
+            
             pipe.enable_attention_slicing(1)
             if self.device != "cpu":
                 pipe.enable_vae_slicing()
@@ -156,7 +159,7 @@ class MDX():
             latents = 1 / self.tae.config.scaling_factor * latents
             decoded = self.tae.decode(latents).sample
             image = pipe.image_processor.postprocess(decoded)[0]
-            image.save(OUTPUT + "/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
+            image.save(f"{args.output}/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
             self.frames.append(image)
         return callback_kwargs
 
@@ -187,7 +190,7 @@ class MDX():
                 self.frames = []
 
             print(f"[{self.md.type}, {self.md.pipeline}, {width}x{height}, {self.md.scheduler}, {steps}, {self.md.guidance}, {self.md.strength}, {self.md.lorascale}, +{self.md.number-1}, {seed}]")
-            images = pipe(output_type="pil",
+            images = pipe(
                 prompt = self.md.prompt,
                 negative_prompt = self.md.negative,
                 width = width,
@@ -204,27 +207,25 @@ class MDX():
                 callback_on_step_end = self.callback_on_step_end if self.md.preview else None,
                 callback_on_step_end_tensor_inputs = ['latents'])[0]
 
-            pngInfo = PngInfo()
-            pngInfo.add_text("MDX", json.dumps({ "version": VER, "type": self.md.type, "pipeline": self.md.pipeline,
-                "checkpoint": os.path.abspath(self.md.checkpoint), "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
-                "scheduler": self.md.scheduler, "seed": seed, "steps": steps, "guidance": self.md.guidance, "strength": self.md.strength, "lorascale": self.md.lorascale,
-                "prompt": self.md.prompt, "negative": self.md.negative, "image": os.path.abspath(self.md.image) if self.md.image else None, "mask": os.path.abspath(self.md.mask) if self.md.mask else None
-            }))
-
+            pngInfo = PngImagePlugin.PngInfo()
+            pngInfo.add_text("MDX", json.dumps({ "version": VER, "pipeline": self.md.pipeline, "type": self.md.type, "checkpoint": os.path.abspath(self.md.checkpoint), "scheduler": self.md.scheduler, "prompt": self.md.prompt, "negative": self.md.negative,
+                "width": width, "height": height, "seed": seed, "steps": steps, "guidance": self.md.guidance, "strength": self.md.strength, "lorascale": self.md.lorascale,
+                "image": os.path.abspath(self.md.image) if self.md.image else None, "mask": os.path.abspath(self.md.mask) if self.md.mask else None, "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
+                "filename": self.md.filename, "output": self.md.output, "number": self.md.number, "batch": self.md.batch, "preview": self.md.preview, "lowvram": self.md.lowvram }))
+            
             savepath = None
             for img in images:
                 count = 1
                 filename = self.md.filename.replace("{seed}", str(seed))
-                savepath = f"{OUTPUT}/{filename}"
+                savepath = f"{args.output}/{filename}"
                 while os.path.exists(f"{savepath}.png"):
-                    savepath = f"{OUTPUT}/{filename}_{str(count)}"
+                    savepath = f"{args.output}/{filename}_{str(count)}"
                     count += 1
                 img.save(f"{savepath}.png", pnginfo=pngInfo)
                 print("Saved:", Fore.GREEN + f"{savepath}.png")
 
             if SAVE_ANIM and self.md.preview:
-                self.frames.append(img)
-                self.frames[0].save(f"{savepath}.webp", append_images=self.frames[1:], save_all=True, lossless=False, quality=100, method=5, duration=300)
+                self.frames.append(img); self.frames[0].save(f"{savepath}.webp", append_images=self.frames[1:], save_all=True, lossless=False, quality=100, method=5, duration=300)
                 print("Saved:", Fore.GREEN + f"{savepath}.webp")
         else:
             print(Fore.RED + "ERROR: Failed to load pipeline.")
@@ -248,7 +249,6 @@ class MDX():
                 self.inference(pipe)
         except KeyboardInterrupt:
             print("(0)")
-
         self.clear_cache()
 
 
@@ -268,7 +268,7 @@ if __name__== "__main__":
                 print(Image.open(args.metadata).info); sys.exit(0)
             print(Fore.RED + "ERROR: --metadata image does not exists."); sys.exit(1)
 
-        if not os.path.exists(OUTPUT): os.mkdir(OUTPUT)
+        if not os.path.exists(args.output): os.mkdir(args.output)
         if args.checkpoint and not os.path.exists(args.checkpoint):
             print(Fore.RED + "ERROR: --checkpoint does not exists."); sys.exit(1)
         if args.image and not os.path.exists(args.image):
@@ -280,7 +280,7 @@ if __name__== "__main__":
         if args.lora and not os.path.exists(args.lora):
             print(Fore.RED + "ERROR: --lora model does not exists."); sys.exit(1)
         if args.scheduler not in ["ddim", "ddpm", "euler", "eulera", "lcm", "lms", "pndm"]:
-            print(Fore.RED + "ERROR: --scheduler does not exists."); sys.exit(1)
+            print(Fore.RED + "ERROR: --scheduler config does not exists."); sys.exit(1)
 
         MDX().main(args)
     else:

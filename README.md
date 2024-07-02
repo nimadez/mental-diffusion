@@ -6,13 +6,11 @@
 Powered by [Diffusers](https://github.com/huggingface/diffusers)<br>
 Designed for Linux
 
-| MDX | 0.8.6 |
+| MDX | 0.8.7 |
 | ------- | --- |
 | Python | 3.11, 3.12 |
 | Torch | 2.3.1 +cu121 |
-| Diffusers | 0.29.0 |
-
-> 0.8.6: faster startup and preview, no pipeline reloads in batch
+| Diffusers | 0.29.2 |
 
 ## Features
 - SD, **SDXL**
@@ -24,14 +22,18 @@ Designed for Linux
 - CPU, GPU, Low VRAM mode *(automatic on 4GB cards)*
 - Lightweight and fast, rewritten in **300** lines
 - Proxy, offline mode, minimal downloads
-- Free to use, study, modify, and distribute 
-- Addons: Real-ESRGAN [upscaler x4 script](https://github.com/nimadez/mental-diffusion/blob/main/src/upscale.py)
+- Free to use, study, modify, and distribute
 
-> SD3 is currently not supported
+##### Addons
+- [PNG-2-MDX](https://github.com/nimadez/mental-diffusion/blob/main/src/png2mdx.py): recreate mdx arguments from mdx-generated png images
+- [PNG-2-JSON](https://github.com/nimadez/mental-diffusion/blob/main/src/png2json.py): create a json file from mdx-generated png images
+- [Upscaler x4](https://github.com/nimadez/mental-diffusion/blob/main/src/upscale.py): realesrgan upscaler x4 with automatic download
+
+> SD3 is currently not supported. [prototype](https://github.com/nimadez/mental-diffusion/blob/main/tests/sd3.py)
 
 ## Installation
 > - 3GB Python packages (5.2GB extracted)
-> - 50MB HuggingFace cache (mostly for TAESD)
+> - 50MB Huggingface cache (automatic, mostly for taesd)
 > - Make sure you have a swap partition or swap file
 ```
 git clone https://github.com/nimadez/mental-diffusion
@@ -77,6 +79,7 @@ deactivate
 --vae         -v    str     vae.safetensors
 --lora        -l    str     lora.safetensors
 --filename    -f    str     filename prefix without .png extension, add {seed} to be replaced (def: img_{seed})
+--output      -o    str     image and preview output directory (def: custom)
 --number      -no   int     number of images to generate per prompt (def: 1)
 --batch       -b    int     number of repeats to run in batch, --seed -1 to randomize
 --preview     -pv           stepping is slower with preview enabled (def: no preview)
@@ -92,27 +95,32 @@ Inpaint:    mdx -i ./image.png -m ./mask.png
 VAE:        mdx -v ./vae.safetensors
 LoRA:       mdx -l ./lora.safetensors -ls 0.5
 Filename:   mdx -f img_test_{seed}
+Output:     mdx -o /home/user/.mdx
 Number:     mdx -no 4
 Batch:      mdx -b 10
 Preview:    mdx -pv
 Low VRAM:   mdx -lv
-Metadata:   mdx -meta ./example.png
+Metadata:   mdx -meta ./image.png
+RealESRGAN: upscale ./image.png .
 ```
 
 ## Tips & Tricks
 ```
-Preview, cancel and repeat with higher steps:
-mdx -p "prompt" -g 8.0 -st 20 -pv (CTRL+C to cancel)
-mdx -p "prompt" -g 8.0 -st 50 -s 827362763262387
+* Enable OFFLINE if you have already downloaded the huggingface cache
+* Enable SAVE_ANIM to save preview animation to ~/.mdx/filename.webp
+
+Preview, cancel, and repeat with higher steps:
+mdx -p "prompt" -g 8.0 -st 15 -pv
+mdx -p "prompt" -g 8.0 -st 30 -s 827362763262387
 
 Improve details with Img2Img pipeline:
 mdx -p "prompt" -st 20 -f myimage
-mdx -p "prompt" -st 80 -i ~/.mdx/image.png -sr 0.15
+mdx -p "prompt" -st 30 -i ~/.mdx/image.png -sr 0.15
 
-Content-aware upscaling: (ImageMagick, A1111 hires-fix)
-mdx -p "prompt" -st 20 -w 720 -h 720 -f image
+Content-aware upscaling: (ImageMagick, similar to A1111 hires-fix)
+mdx -p "prompt" -st 20 -w 512 -h 512 -f image
 magick convert ~/.mdx/image.png -resize 200% ~/.mdx/image_up.png
-mdx -p "prompt" -st 20 -i ~/.mdx/image_up.png -sr 0.25
+mdx -p "prompt" -st 20 -i ~/.mdx/image_up.png -sr 0.5
 
 Generate 40 images in less time:
 mdx -p "prompt" -b 10 -no 4
@@ -120,16 +128,18 @@ mdx -p "prompt" -b 10 -no 4
 Extract images from WebP animation: (ImageMagick)
 magick convert image.webp jpg
 
-Open preview image in a browser across the LAN:
+Create images across the LAN via SSH:
+apt install openssh-server && ssh-keygen -t rsa -b 4096
+ssh user@192.168.x.x
+$ mdx -p "prompt"
+
+Explore output directory in a browser across the LAN:
+Notice: I recommend using a dedicated and secure web server
 cd ~/.mdx && python3 -m http.server 8000
-$ open http://192.168.x.x:8000/preview.jpg
+$ open http://192.168.x.x:8000
 
-Download HuggingFace cache in a specific path:
+Download huggingface cache in a specific path:
 mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
-
-* Enable OFFLINE if you have already downloaded the huggingface cache
-* Enable SAVE_ANIM to save preview animation to ~/.mdx/filename.webp
-* Preview image saved to ~/.mdx/preview.jpg (update on progress)
 ```
 
 ## Tests
@@ -145,13 +155,6 @@ mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
 | Batch | &check; | &check; | &check; |
 | Preview | &check; | &check; | &check; |
 | Low VRAM |  | &check; | &check; |
-
-> JPEG preview uses more CPU than BMP, but is faster on HDDs because the file size is smaller, PNG takes more CPU time.
-
-|  | JPEG | BMP | PNG |
-| --- | :---: | :---: | :---: |
-| File size | 669KB | 3.1MB | 1.4MB |
-| Save time | 0.006 | 0.029 | 0.329 |
 
 ## Previous Experiments
 > - [Legacy command-line interface and server](https://github.com/nimadez/mental-diffusion/tree/main/legacy/README.md) (diffusers)

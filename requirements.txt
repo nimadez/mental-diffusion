@@ -1,7 +1,7 @@
 torch
 torchvision
 accelerate
-diffusers==0.29.0
+diffusers==0.29.2
 transformers
 peft
 safetensors

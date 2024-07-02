@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-//
 // JavaScript to mdx.py arguments
 // apt install nodejs
 // node editor.js
-//
+
+const VENV = "~/.venv/mdx/bin/python3";
 
 const data = {
     type: "xl",
@@ -23,27 +23,30 @@ const data = {
     vae: null,
     lora: null,
     filename: "img_{seed}",
+    output: "/home/$USER/.mdx",
     number: 1,
     batch: 0,
     preview: true,
     lowvram: false
 };
 
-const exec = require('child_process').exec;
-
 function execute(data) {
-    const image = (data.image) ? `-i ${data.image}` : '';
-    const mask = (data.mask) ? `-m ${data.mask}` : '';
-    const vae = (data.vae) ? `-v ${data.vae}` : '';
-    const lora = (data.lora) ? `-l ${data.lora}` : '';
+    const image = (data.image) ? `-i "${data.image}"` : '';
+    const mask = (data.mask) ? `-m "${data.mask}"` : '';
+    const vae = (data.vae) ? `-v "${data.vae}"` : '';
+    const lora = (data.lora) ? `-l "${data.lora}"` : '';
     const preview = (data.preview) ? '-pv' : '';
     const lowvram = (data.lowvram) ? '-lv' : '';
 
-    const settings = `${lowvram} ${preview} -t ${data.type} -b ${data.batch} -no ${data.number} -f "${data.filename}"`;
-    const inputs = `-c ${data.checkpoint} -sc ${data.scheduler} -p "${data.prompt}" -n "${data.negative}" ${image} ${mask} ${vae} ${lora}`;
-    const values = `-w ${data.width} -h ${data.height} -s ${data.seed} -st ${data.steps} -g ${data.guidance} -sr ${data.strength} -ls ${data.lorascale}`;
-    
-    exec(`x-terminal-emulator -e 'mdx ${settings} ${inputs} ${values}; exec bash;'`);
+    const a1 = `-t ${data.type} -c "${data.checkpoint}" -sc "${data.scheduler}" -p "${data.prompt}" -n "${data.negative}"`;
+    const a2 = `-w ${data.width} -h ${data.height} -s ${data.seed} -st ${data.steps} -g ${data.guidance} -sr ${data.strength} -ls ${data.lorascale}`;
+    const a3 = `${image} ${mask} ${vae} ${lora}`;
+    const a4 = `-f "${data.filename}" -o "${data.output}" -no ${data.number} -b ${data.batch} ${preview} ${lowvram}`;
+    const cmd = `${VENV} src/mdx.py ${a1} ${a2} ${a3} ${a4}`;
+
+    const exec = require('child_process').exec;
+    exec(`x-terminal-emulator -e '${cmd}; exec bash;'`);
+    return cmd;
 }
 
-execute(data);
+console.log(execute(data));

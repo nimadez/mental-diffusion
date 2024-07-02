@@ -9,7 +9,8 @@
 
 
 URL = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
-MODEL = f"/home/{__import__('getpass').getuser()}/.cache/realesrgan/RealESRGAN_x4plus.pth"
+USER = __import__('getpass').getuser()
+MODEL = f"/home/{USER}/.cache/realesrgan/RealESRGAN_x4plus.pth"
 
 
 # torchvision 0.17+ basicsr workaround
@@ -31,7 +32,7 @@ from realesrgan import RealESRGANer
 from basicsr.archs.rrdbnet_arch import RRDBNet
 
 
-def upscale(img_path):
+def upscale(img_path, output):
     model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
     netscale = 4
     print("Upscaler:", os.path.basename(MODEL))
@@ -54,7 +55,7 @@ def upscale(img_path):
     img = img[:, :, ::-1]
     img = Image.fromarray(img)
 
-    savepath = f"{os.path.basename(img_path)}_x4.png"
+    savepath = f"{output}/{os.path.basename(img_path)}_x4.png"
     img.save(savepath)
     print(f"Saved to {savepath}")
 
@@ -62,17 +63,22 @@ def upscale(img_path):
 if __name__== "__main__":
     if not os.path.exists(MODEL):
         print(f"Downloading {os.path.basename(MODEL)} ...")
-        os.mkdir(os.path.dirname(MODEL))
+        if not os.path.exists(os.path.dirname(MODEL)):
+            os.mkdir(os.path.dirname(MODEL))
         torch.hub.download_url_to_file(URL, MODEL, progress=True)
 
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 2:
         image = sys.argv[1]
-        if os.path.exists(image):
-            upscale(image)
+        output = sys.argv[2]
+        if os.path.exists(output):
+            if os.path.exists(image):
+                upscale(image, output)
+            else:
+                print("ERROR: Image does not exist.")
         else:
-            print("ERROR: Image does not exist.")
+            print("ERROR: Output path does not exist.")
     else:
-        print("help: python3 upscale.py [./image-path]")
+        print('help: python3 upscale.py [image] [output-directory]')
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
