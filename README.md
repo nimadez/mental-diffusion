@@ -25,6 +25,7 @@ Designed for Linux
 - Free to use, study, modify, and distribute
 
 ##### Addons
+- New online [MDX Args Generator](https://huggingface.co/spaces/nimadez/mdx)
 - [PNG-2-MDX](https://github.com/nimadez/mental-diffusion/blob/main/src/png2mdx.py): recreate mdx arguments from mdx-generated png images
 - [PNG-2-JSON](https://github.com/nimadez/mental-diffusion/blob/main/src/png2json.py): create a json file from mdx-generated png images
 - [Upscaler x4](https://github.com/nimadez/mental-diffusion/blob/main/src/upscale.py): realesrgan upscaler x4 with automatic download

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 #
 # Recreate mdx.py arguments from mdx-generated png images
-# (the exact same image is created, you can change the --steps for example)
+#
+# The exact same image is created, you can change
+# the --steps, or apply content-aware upscaling.
 #
 # notice: it does not support images generated with older versions of mdx.py
-#
 
 import os, sys, json
 from PIL import Image
