@@ -16,7 +16,7 @@ EOF
 
 cat > ~/.cache/upscale <<EOF
 #!/bin/bash
-~/.venv/mdx/bin/python3 $dir/src/upscale.py "\$@"
+~/.venv/mdx/bin/python3 $dir/src/addons/upscale.py "\$@"
 EOF
 
 # copy scripts to /usr/local/bin/

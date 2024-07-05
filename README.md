@@ -6,54 +6,70 @@
 Powered by [Diffusers](https://github.com/huggingface/diffusers)<br>
 Designed for Linux
 
-| MDX | 0.8.6 |
+| MDX | 0.8.9 |
 | ------- | --- |
 | Python | 3.11, 3.12 |
 | Torch | 2.3.1 +cu121 |
-| Diffusers | 0.29.0 |
+| Diffusers | 0.29.2 |
 
-> 0.8.6: faster startup and preview, no pipeline reloads in batch
+```
+[0.8.9]
+* Finish SDXL preview, it works just like SD (accurate result)
+* Python package "colorama" has been removed
+* New --output argument
+* New options CPU_SEED, LOWVRAM_AUTO, LOWVRAM_MODE, ANIM_SPEED
+* New gradio args-generator addon
+* Update upscaler addon (new x2 model)
+```
 
 ## Features
 - SD, **SDXL**
 - Load VAE and LoRA weights
-- TAESD latents preview *(image and animation)*
 - Txt2Img, Img2Img, Inpaint *(automatic pipeline)*
+- TAESD latents preview *(image and animation)*
 - Batch image generation, multiple images per prompt
 - Read/write PNG metadata, auto-rename files
-- CPU, GPU, Low VRAM mode *(automatic on 4GB cards)*
+- CPU, GPU, Low VRAM mode *(automatic activation)*
 - Lightweight and fast, rewritten in **300** lines
+- Get the best performance on low-end hardware
 - Proxy, offline mode, minimal downloads
-- Free to use, study, modify, and distribute 
-- Addons: Real-ESRGAN [upscaler x4 script](https://github.com/nimadez/mental-diffusion/blob/main/src/upscale.py)
+- Free to use, study, modify, and distribute
+- Addons:
+    - Real-ESRGAN Upscaler x2-x4: ```src/addons/upscale.py```
+    - Gradio Args Generator: ```src/addons/argsgen.py``` [online demo](https://huggingface.co/spaces/nimadez/mdx)
 
-> SD3 is currently not supported
+> SD3 is currently not supported. [prototype](https://github.com/nimadez/mental-diffusion/blob/main/tests/sd3.py)
 
 ## Installation
+> - Compatible with most diffusers-based python venvs
 > - 3GB Python packages (5.2GB extracted)
-> - 50MB HuggingFace cache (mostly for TAESD)
+> - 50MB Huggingface cache (automatic, mostly for taesd)
 > - Make sure you have a swap partition or swap file
 ```
 git clone https://github.com/nimadez/mental-diffusion
 cd mental-diffusion
-```
-Automatic installation: *(debian-based)*
-```
+
+# Automatic installation for debian-based distributions:
 apt install python3-pip python3-venv
 sh install-venv.sh
-sh install-bin.sh
-```
-Manual installation:
-```
+sh install-bin.sh (optional)
+
+# Manual installation:
 python3 -m venv ~/.venv/mdx
 source ~/.venv/mdx/bin/activate
 pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu121
 pip install -r ./requirements.txt
 deactivate
 ```
-*(optional)* Install realesrgan for the upscaler x4 script:
+```optional``` Install realesrgan for upscaler addon:
 ```
 ~/.venv/mdx/bin/python3 -m pip install realesrgan
+~/.venv/mdx/bin/python3 src/addons/upscale.py
+```
+```optional``` Install gradio for args-generator addon:
+```
+~/.venv/mdx/bin/python3 -m pip install gradio
+~/.venv/mdx/bin/python3 src/addons/argsgen.py
 ```
 
 ## Arguments
@@ -61,8 +77,8 @@ deactivate
 ~/.venv/mdx/bin/python3 mdx.py --help
 
 --type        -t    str     sd, xl (def: custom)
---checkpoint  -c    str     checkpoint.safetensors (def: custom)
---scheduler   -sc   str     ddim, ddpm, lcm, pndm, eulera, euler, lms (def: custom)
+--checkpoint  -c    str     /checkpoint.safetensors (def: custom)
+--scheduler   -sc   str     ddim, ddpm, euler, eulera, lcm, lms, pndm (def: custom)
 --prompt      -p    str     positive prompt
 --negative    -n    str     negative prompt
 --width       -w    int     divisible by 8 (def: custom)
@@ -72,47 +88,54 @@ deactivate
 --guidance    -g    float   0 - 20.0+ (def: 8.0)
 --strength    -sr   float   0 - 1.0 (def: 1.0)
 --lorascale   -ls   float   0 - 1.0 (def: 1.0)
---image       -i    str     image.png
---mask        -m    str     mask.png
---vae         -v    str     vae.safetensors
---lora        -l    str     lora.safetensors
+--image       -i    str     /image.png
+--mask        -m    str     /mask.png
+--vae         -v    str     /vae.safetensors
+--lora        -l    str     /lora.safetensors
 --filename    -f    str     filename prefix without .png extension, add {seed} to be replaced (def: img_{seed})
+--output      -o    str     image and preview output directory (def: custom)
 --number      -no   int     number of images to generate per prompt (def: 1)
 --batch       -b    int     number of repeats to run in batch, --seed -1 to randomize
 --preview     -pv           stepping is slower with preview enabled (def: no preview)
 --lowvram     -lv           slower if you have enough VRAM, automatic on 4GB cards (def: no lowvram)
---metadata    -meta str     image.png, extract metadata from png
+--metadata    -meta str     /image.png, extract metadata from png
 ```
 ```
 Default:    mdx -p "prompt" -st 28 -g 7.5
-SD:         mdx -t sd -c ./checkpoint.safetensors -w 512 -h 512
-SDXL:       mdx -t xl -c ./checkpoint.safetensors -w 768 -h 768
-Img2Img:    mdx -i ./image.png -sr 0.5
-Inpaint:    mdx -i ./image.png -m ./mask.png
-VAE:        mdx -v ./vae.safetensors
-LoRA:       mdx -l ./lora.safetensors -ls 0.5
+SD:         mdx -t sd -c /checkpoint.safetensors -w 512 -h 512
+SDXL:       mdx -t xl -c /checkpoint.safetensors -w 768 -h 768
+Img2Img:    mdx -i /image.png -sr 0.5
+Inpaint:    mdx -i /image.png -m ./mask.png
+VAE:        mdx -v /vae.safetensors
+LoRA:       mdx -l /lora.safetensors -ls 0.5
 Filename:   mdx -f img_test_{seed}
+Output:     mdx -o /home/user/.mdx
 Number:     mdx -no 4
 Batch:      mdx -b 10
 Preview:    mdx -pv
 Low VRAM:   mdx -lv
-Metadata:   mdx -meta ./example.png
+Metadata:   mdx -meta ./image.png
+Upscale x2: upscale x2 ./image.png .
+Upscale x4: upscale x4 ./image.png .
+Args Gen:   python3 src/addons/argsgen.py
 ```
 
 ## Tips & Tricks
+* Enable OFFLINE if you have already downloaded the huggingface cache
+* Enable SAVE_ANIM to save the preview animation to {output}/filename.webp
 ```
-Preview, cancel and repeat with higher steps:
-mdx -p "prompt" -g 8.0 -st 20 -pv (CTRL+C to cancel)
-mdx -p "prompt" -g 8.0 -st 50 -s 827362763262387
+Preview, cancel, and repeat faster:
+mdx -p "prompt" -g 8.0 -st 30 -pv
+mdx -p "prompt" -g 8.0 -st 30 -s 827362763262387
 
 Improve details with Img2Img pipeline:
 mdx -p "prompt" -st 20 -f myimage
-mdx -p "prompt" -st 80 -i ~/.mdx/image.png -sr 0.15
+mdx -p "prompt" -st 30 -i ~/.mdx/image.png -sr 0.15
 
-Content-aware upscaling: (ImageMagick, A1111 hires-fix)
-mdx -p "prompt" -st 20 -w 720 -h 720 -f image
+Content-aware upscaling: (ImageMagick, similar to A1111 hires-fix)
+mdx -p "prompt" -st 20 -w 512 -h 512 -f image
 magick convert ~/.mdx/image.png -resize 200% ~/.mdx/image_up.png
-mdx -p "prompt" -st 20 -i ~/.mdx/image_up.png -sr 0.25
+mdx -p "prompt" -st 20 -i ~/.mdx/image_up.png -sr 0.5
 
 Generate 40 images in less time:
 mdx -p "prompt" -b 10 -no 4
@@ -120,22 +143,21 @@ mdx -p "prompt" -b 10 -no 4
 Extract images from WebP animation: (ImageMagick)
 magick convert image.webp jpg
 
-Open preview image in a browser across the LAN:
+Create images across the LAN via SSH:
+apt install openssh-server && ssh-keygen -t rsa -b 4096
+ssh user@192.168.x.x
+$ mdx -p "prompt"
+
+Explore output directory in a browser across the LAN:
 cd ~/.mdx && python3 -m http.server 8000
-$ open http://192.168.x.x:8000/preview.jpg
+$ open http://192.168.x.x:8000
 
-Download HuggingFace cache in a specific path:
+Download huggingface cache in a specific path:
 mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
-
-* Enable OFFLINE if you have already downloaded the huggingface cache
-* Enable SAVE_ANIM to save preview animation to ~/.mdx/filename.webp
-* Preview image saved to ~/.mdx/preview.jpg (update on progress)
 ```
 
 ## Tests
-> Tested on Debian Trixie (testing branch) with nvidia driver 535
-
-|  | SD CPU | SD GPU | SDXL GPU |
+| v0.8.9 | SD CPU | SD GPU | SDXL GPU |
 | --- | :---: | :---: | :---: |
 | Txt2Img | &check; | &check; | &check; |
 | Img2Img | &check; | &check; | &check; |
@@ -146,18 +168,15 @@ mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
 | Preview | &check; | &check; | &check; |
 | Low VRAM |  | &check; | &check; |
 
-> JPEG preview uses more CPU than BMP, but is faster on HDDs because the file size is smaller, PNG takes more CPU time.
-
-|  | JPEG | BMP | PNG |
-| --- | :---: | :---: | :---: |
-| File size | 669KB | 3.1MB | 1.4MB |
-| Save time | 0.006 | 0.029 | 0.329 |
+- Debian Trixie (testing branch)
+- Kernel 6.8.12 / 6.9.7
+- Nvidia driver 535
 
 ## Previous Experiments
+<img src="legacy/media/preview.gif">
+
 > - [Legacy command-line interface and server](https://github.com/nimadez/mental-diffusion/tree/main/legacy/README.md) (diffusers)
 > - [ComfyUI bridge for VS Code extension](https://github.com/nimadez/mental-diffusion/tree/main/comfyui/README.md)
-
-<img src="media/splash_legacy.jpg">
 
 ## History
 ```
@@ -182,6 +201,7 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [TAESD](https://github.com/madebyollin/taesd)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
 
-##### Splash models
-- [zavychromaxl_v80](https://huggingface.co/misri/zavychromaxl_v80)
-- [OpenDalleV1.1](https://huggingface.co/dataautogpt3/OpenDalleV1.1)
+##### Models
+- zavychromaxl_v80
+- OpenDalleV1.1
+- juggernaut_aftermath
