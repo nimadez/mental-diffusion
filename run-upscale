@@ -1,3 +1,0 @@
-#!/bin/bash
-
-~/.venv/mdx/bin/python3 src/addons/upscale.py "$@"

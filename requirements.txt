@@ -1,10 +1,10 @@
-torch
-torchvision
+torch==2.3.1+cu121
+torchvision==0.18.1+cu121
 accelerate
-diffusers==0.29.2
+diffusers==0.30.0
 transformers
 peft
 safetensors
 
-#gradio
-#realesrgan
+#gradio==4.37.2
+#realesrgan==0.3.0

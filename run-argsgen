@@ -1,3 +1,0 @@
-#!/bin/bash
-
-~/.venv/gradio/bin/gradio src/addons/argsgen.py

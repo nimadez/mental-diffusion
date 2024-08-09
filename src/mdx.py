@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Jun 2024 | Mental Diffusion | https://github.com/nimadez
+# Jun 2024 | Mental Diffusion Core | https://github.com/nimadez/mental-diffusion
 
 
-VER = "0.8.9"
+VER = "0.9.1"
 USER = __import__('getpass').getuser()
 DEBUG = False
 PROXY = None
@@ -145,26 +145,28 @@ class MDX():
 
 
     def callback_on_step_end(self, pipe, idx, ts, callback_kwargs):
-        with torch.no_grad():
-            if self.md.type == 'xl': added_cond_kwargs = { "text_embeds": callback_kwargs["add_text_embeds"][-1:], "time_ids": callback_kwargs["add_time_ids"][-1:] }
-            latents = callback_kwargs["latents"]
-            latent_model_input = pipe.scheduler.scale_model_input(latents, ts)
-            noise_pred = pipe.unet(latent_model_input, ts, encoder_hidden_states=self.encoded_prompt[0], added_cond_kwargs=added_cond_kwargs if self.md.type == 'xl' else None).sample
+        pipe._interrupt = os.path.exists(f"{self.md.output}/.interrupt")
+        if self.md.preview:
+            with torch.no_grad():
+                if self.md.type == 'xl': added_cond_kwargs = { "text_embeds": callback_kwargs["add_text_embeds"][-1:], "time_ids": callback_kwargs["add_time_ids"][-1:] }
+                latents = callback_kwargs["latents"]
+                latent_model_input = pipe.scheduler.scale_model_input(latents, ts)
+                noise_pred = pipe.unet(latent_model_input, ts, encoder_hidden_states=self.encoded_prompt[0], added_cond_kwargs=added_cond_kwargs if self.md.type == 'xl' else None).sample
 
-            if not hasattr(pipe.scheduler, 'sigmas'): # non-discretes
-                alpha_t = torch.sqrt(pipe.scheduler.alphas_cumprod)[ts]
-                sigma_t = torch.sqrt(1 - pipe.scheduler.alphas_cumprod)[ts]
-                latents = (latents - sigma_t * noise_pred) / alpha_t
-            else: # discretes
-                step_index = (pipe.scheduler.timesteps == ts).nonzero().item()
-                sigma_t = pipe.scheduler.sigmas[step_index + 1]
-                latents = latents - sigma_t * noise_pred
-                
-            latents = 1 / self.tae.config.scaling_factor * latents
-            decoded = self.tae.decode(latents).sample
-            image = pipe.image_processor.postprocess(decoded)[0]
-            image.save(f"{args.output}/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
-            self.frames.append(image)
+                if not hasattr(pipe.scheduler, 'sigmas'): # non-discretes
+                    alpha_t = torch.sqrt(pipe.scheduler.alphas_cumprod)[ts]
+                    sigma_t = torch.sqrt(1 - pipe.scheduler.alphas_cumprod)[ts]
+                    latents = (latents - sigma_t * noise_pred) / alpha_t
+                else: # discretes
+                    step_index = (pipe.scheduler.timesteps == ts).nonzero().item()
+                    sigma_t = pipe.scheduler.sigmas[step_index + 1]
+                    latents = latents - sigma_t * noise_pred
+                    
+                latents = 1 / self.tae.config.scaling_factor * latents
+                decoded = self.tae.decode(latents).sample
+                image = pipe.image_processor.postprocess(decoded)[0]
+                image.save(f"{self.md.output}/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
+                self.frames.append(image)
         return callback_kwargs
 
 
@@ -192,6 +194,7 @@ class MDX():
                 self.encoded_prompt = pipe.encode_prompt(device=self.device, prompt=self.md.prompt, num_images_per_prompt=self.md.number, do_classifier_free_guidance=self.md.guidance > 1.0)
                 self.frames = []
 
+            if os.path.exists(f"{self.md.output}/.interrupt"): os.remove(f"{self.md.output}/.interrupt")
             print(f"[{self.md.type}, {self.md.pipeline}, {width}x{height}, {self.md.scheduler}, {steps}, {self.md.guidance}, {self.md.strength}, {self.md.lorascale}, +{self.md.number-1}, {seed}]")
             images = pipe(
                 prompt = self.md.prompt,
@@ -207,52 +210,74 @@ class MDX():
                 mask_image = mask,
                 num_images_per_prompt = self.md.number,
                 cross_attention_kwargs = { "scale": self.md.lorascale } if self.md.lora else None,
-                callback_on_step_end = self.callback_on_step_end if self.md.preview else None,
+                callback_on_step_end = self.callback_on_step_end,
                 callback_on_step_end_tensor_inputs = ['latents'] if self.md.type == 'sd' else ['latents', 'add_text_embeds', 'add_time_ids'] )[0]
 
-            pngInfo = PngImagePlugin.PngInfo()
-            pngInfo.add_text("MDX", json.dumps({ "version": VER, "pipeline": self.md.pipeline, "type": self.md.type, "checkpoint": os.path.abspath(self.md.checkpoint), "scheduler": self.md.scheduler, "prompt": self.md.prompt, "negative": self.md.negative,
-                "width": width, "height": height, "seed": seed, "steps": steps, "guidance": self.md.guidance, "strength": self.md.strength, "lorascale": self.md.lorascale,
-                "image": os.path.abspath(self.md.image) if self.md.image else None, "mask": os.path.abspath(self.md.mask) if self.md.mask else None, "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
-                "filename": self.md.filename, "output": self.md.output, "number": self.md.number, "batch": self.md.batch, "preview": self.md.preview, "lowvram": self.md.lowvram }))
-            
-            savepath = None
-            for img in images:
-                count = 1
-                filename = self.md.filename.replace("{seed}", str(seed))
-                savepath = f"{args.output}/{filename}"
-                while os.path.exists(f"{savepath}.png"):
-                    savepath = f"{args.output}/{filename}_{str(count)}"
-                    count += 1
-                img.save(f"{savepath}.png", pnginfo=pngInfo)
-                print("Saved:", col.GREEN + f"{savepath}.png" + col.END)
+            if not pipe._interrupt:
+                pngInfo = PngImagePlugin.PngInfo()
+                pngInfo.add_text("MDX", json.dumps({ "version": VER, "pipeline": self.md.pipeline, "type": self.md.type, "checkpoint": os.path.abspath(self.md.checkpoint), "scheduler": self.md.scheduler, "prompt": self.md.prompt, "negative": self.md.negative,
+                    "width": width, "height": height, "seed": seed, "steps": steps, "guidance": self.md.guidance, "strength": self.md.strength, "lorascale": self.md.lorascale,
+                    "image": os.path.abspath(self.md.image) if self.md.image else None, "mask": os.path.abspath(self.md.mask) if self.md.mask else None, "vae": os.path.abspath(self.md.vae) if self.md.vae else None, "lora": os.path.abspath(self.md.lora) if self.md.lora else None,
+                    "filename": self.md.filename, "output": os.path.abspath(self.md.output), "number": self.md.number, "batch": self.md.batch, "preview": self.md.preview, "lowvram": self.md.lowvram }))
+                
+                fpath = None
+                for img in images:
+                    count = 1
+                    fname = self.md.filename.replace("{seed}", str(seed))
+                    fpath = f"{self.md.output}/{fname}"
+                    while os.path.exists(f"{fpath}.png"):
+                        fpath = f"{self.md.output}/{fname}_{str(count)}"
+                        count += 1
+                    img.save(f"{fpath}.png", pnginfo=pngInfo)
+                    print("Saved:", col.GREEN + f"{fpath}.png" + col.END)
 
-            if SAVE_ANIM and self.md.preview:
-                self.frames.append(img); self.frames[0].save(f"{savepath}.webp", append_images=self.frames[1:], save_all=True, lossless=False, quality=100, method=5, duration=ANIM_SPEED)
-                print("Saved:", col.GREEN + f"{savepath}.webp" + col.END)
+                if self.md.preview: images[0].save(f"{self.md.output}/preview.jpg", format="jpeg", quality=100, optimize=False, progressive=False)
+
+                if SAVE_ANIM and self.md.preview:
+                    self.frames.append(img); self.frames[0].save(f"{fpath}.webp", append_images=self.frames[1:], save_all=True, lossless=False, quality=100, method=5, duration=ANIM_SPEED)
+                    print("Saved:", col.GREEN + f"{fpath}.webp" + col.END)
+            else:
+                print("(0)")
         else:
             print(col.RED + "ERROR: Failed to load pipeline." + col.END)
 
 
     def main(self, args):
-        self.md = args
-        if self.device != "cpu" and self.md.type != "sd" and torch.cuda.get_device_properties(self.device).total_memory < LOWVRAM_AUTO: self.md.lowvram = True
-        print(col.MAGENTA + f"MDX {VER}" + col.END, self.device.upper(), "LV", "PV" if self.md.preview else "") if self.device != "cpu" and self.md.lowvram else print(col.MAGENTA + f"MDX {VER}" + col.END, self.device.upper(), "PV" if self.md.preview else "")
-        self.clear_cache()
+        if self.path_checker(args):
+            self.md = args
+            if self.device != "cpu" and self.md.type != "sd" and torch.cuda.get_device_properties(self.device).total_memory < LOWVRAM_AUTO: self.md.lowvram = True
+            print(col.MAGENTA + f"MDX {VER}" + col.END, self.device.upper(), "LV", "PV" if self.md.preview else "") if self.device != "cpu" and self.md.lowvram else print(col.MAGENTA + f"MDX {VER}" + col.END, self.device.upper(), "PV" if self.md.preview else "")
 
-        try:
-            pipe = self.load_pipeline()
-            if self.md.batch > 0:
-                for _ in range(1, self.md.batch + 1):
-                    print(col.CYAN + f"#{_}" + col.END)
+            try:
+                pipe = self.load_pipeline()
+                if self.md.batch > 0:
+                    for _ in range(1, self.md.batch + 1):
+                        print(col.CYAN + f"#{_}" + col.END)
+                        self.inference(pipe)
+                        self.clear_cache()
+                        time.sleep(1)
+                else:
                     self.inference(pipe)
-                    self.clear_cache()
-                    time.sleep(1)
-            else:
-                self.inference(pipe)
-        except KeyboardInterrupt:
-            print("(0)")
-        self.clear_cache()
+            except KeyboardInterrupt:
+                print("(0)")
+            self.clear_cache()
+
+
+    def path_checker(self, args):
+        if not os.path.exists(args.output): os.mkdir(args.output)
+        if args.checkpoint and not os.path.exists(args.checkpoint):
+            print(col.RED + "ERROR: --checkpoint does not exists." + col.END); return False
+        if args.image and not os.path.exists(args.image):
+            print(col.RED + "ERROR: --image does not exists." + col.END); return False
+        if args.mask and not os.path.exists(args.mask):
+            print(col.RED + "ERROR: --mask image does not exists." + col.END); return False
+        if args.vae and not os.path.exists(args.vae):
+            print(col.RED + "ERROR: --vae model does not exists." + col.END); return False
+        if args.lora and not os.path.exists(args.lora):
+            print(col.RED + "ERROR: --lora model does not exists." + col.END); return False
+        if args.scheduler not in ["ddim", "ddpm", "euler", "eulera", "lcm", "lms", "pndm"]:
+            print(col.RED + "ERROR: --scheduler config does not exists." + col.END); return False
+        return True
 
 
     def clear_cache(self):
@@ -267,23 +292,8 @@ if __name__== "__main__":
         args = arg_parser(sys.argv[1:])
         
         if args.metadata != None:
-            if os.path.exists(args.metadata):
-                print(Image.open(args.metadata).info); sys.exit(0)
+            if os.path.exists(args.metadata): print(Image.open(args.metadata).info); sys.exit(0)
             print(col.RED + "ERROR: --metadata image does not exists." + col.END); sys.exit(1)
-
-        if not os.path.exists(args.output): os.mkdir(args.output)
-        if args.checkpoint and not os.path.exists(args.checkpoint):
-            print(col.RED + "ERROR: --checkpoint does not exists." + col.END); sys.exit(1)
-        if args.image and not os.path.exists(args.image):
-            print(col.RED + "ERROR: --image does not exists." + col.END); sys.exit(1)
-        if args.mask and not os.path.exists(args.mask):
-            print(col.RED + "ERROR: --mask image does not exists." + col.END); sys.exit(1)
-        if args.vae and not os.path.exists(args.vae):
-            print(col.RED + "ERROR: --vae model does not exists." + col.END); sys.exit(1)
-        if args.lora and not os.path.exists(args.lora):
-            print(col.RED + "ERROR: --lora model does not exists." + col.END); sys.exit(1)
-        if args.scheduler not in ["ddim", "ddpm", "euler", "eulera", "lcm", "lms", "pndm"]:
-            print(col.RED + "ERROR: --scheduler config does not exists." + col.END); sys.exit(1)
 
         MDX().main(args)
     else:
