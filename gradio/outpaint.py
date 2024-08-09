@@ -8,6 +8,12 @@ addon = Addon()
 mdx_outpaint = __import__('mdx-outpaint')
 
 
+def create_outpaint(image, t, b, l, r):
+    if image:
+        return mdx_outpaint.create_outpaint(image, t, b, l, r)
+    return None, None
+
+
 def update_outpaint_aspect(val):
     return val, val, val, val
 
@@ -42,7 +48,7 @@ def application(app):
             with gr.Group():
                 with gr.Row():
                     btn_create = gr.Button("create images", variant="primary")
-                    btn_create.click(mdx_outpaint.create_outpaint, inputs=[in_image, in_pad_t, in_pad_b, in_pad_l, in_pad_r], outputs=[out_image_1, out_image_2])
+                    btn_create.click(create_outpaint, inputs=[in_image, in_pad_t, in_pad_b, in_pad_l, in_pad_r], outputs=[out_image_1, out_image_2])
                     gr.ClearButton(components=[in_image, out_image_1, out_image_2])
 
     with gr.Group():

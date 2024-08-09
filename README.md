@@ -11,7 +11,8 @@ Designed for Linux
 | Python | **3.12** - 3.11 |
 | Torch | 2.3.1 +cu121 |
 | Diffusers | 0.30.0 |
-| + Gradio | 4.37.2 |
+
+[Changelog](https://github.com/nimadez/mental-diffusion/blob/main/CHANGELOG.md)
 
 ## Features
 - SD, **SDXL**
@@ -24,27 +25,17 @@ Designed for Linux
 - Lightweight and fast, rewritten in **300** lines
 - Proxy, offline mode, minimal downloads
 
-#### Addons
-| Script | Description |
-| --- | --- |
-| /gradio/ | [Gradio user-interface addons](https://github.com/nimadez/mental-diffusion#gradio-addons) |
-| /mdx-[caption](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-caption.py).py | Transformers image captioning script |
-| /mdx-[detect](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-detect.py).py | Transformers object detection script |
-| /mdx-[outpaint](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-outpaint.py).py | Create outpaint image and mask for inpaint |
-| /mdx-[upscale](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-upscale.py).py | Real-ESRGAN x2 and x4 script |
-
 > SD3 is currently not supported.
 
 ## Installation
-> - Compatible with most diffusers-based python venvs
 > - 3GB Python packages (5GB extracted)
-> - 50MB Huggingface cache (automatic, mostly for taesd)
+> - Automatic HuggingFace cache
 > - Make sure you have a swap partition or swap file
 ```
 git clone https://github.com/nimadez/mental-diffusion
 cd mental-diffusion
 
-# Automatic installation for debian-based distributions:
+# Automatic installation:
 sudo apt install python3-pip python3-venv
 sh install-venv.sh
 
@@ -54,42 +45,6 @@ source ~/.venv/mdx/bin/activate
 pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu121
 pip install -r ./requirements.txt
 deactivate
-```
-```optional``` Install Realesrgan for upscaler addons:
-```
-~/.venv/mdx/bin/python3 -m pip install realesrgan
-
-# You can also install these packages and just copy realesrgan.py:
-~/.venv/mdx/bin/python3 -m pip install basicsr opencv-python
-cp ./libs/realesrgan.py ~/.venv/mdx/lib/python3.12/site-packages/
-```
-```optional``` Install Gradio for user-interface addons:
-```
-~/.venv/mdx/bin/python3 -m pip install gradio==4.37.2
-```
-```optional``` Install Zenity for inference addon:
-```
-sudo apt install zenity
-
-# Without Zenity, you can't select safetensors files with the file dialog, you have to enter the Checkpoint, VAE and LoRA path manually.
-```
-
-## Gradio Addons
-<img src="media/addon_inference.png" height="256">
-
-| Name | Description | Screenshot |
-| --- | --- | :---: |
-| main | A tabbed interface for all addons | - |
-| inference | The inference user-interface | [view](media/addon_inference.png) |
-| preview | Watch preview and gallery | [view](media/addon_preview.png) |
-| metadata | View and recreate data from PNG | [view](media/addon_metadata.png) |
-| outpaint | Create image and mask for outpaint | [view](media/addon_outpaint.png) |
-| upscale | Real-ESRGAN x2 and x4 plus | [view](media/addon_upscale.png) |
-
-```
-~/.venv/mdx/bin/python3 src/addons/gradio/addon-name.py
-~/.venv/mdx/bin/python3 src/addons/gradio/main.py
-sh addon-dev main
 ```
 
 ## Arguments
@@ -142,6 +97,18 @@ Preview:    mdx -pv
 Low VRAM:   mdx -lv
 Metadata:   mdx -meta ./image.png
 ```
+
+## Addons
+| Addon | Description |
+| --- | --- |
+| [mdx-caption.py](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-caption.py) | Transformers image captioning script |
+| [mdx-detect.py](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-detect.py) | Transformers object detection script |
+| [mdx-outpaint.py](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-outpaint.py) | Create outpaint image and mask for inpaint |
+| [mdx-upscale.py](https://github.com/nimadez/mental-diffusion/blob/main/src/addons/mdx-upscale.py) | Real-ESRGAN x2 and x4 script |
+
+> See the comments, the description is given in each file separately.
+
+<img src="media/addon_detect.jpg" height="256"> <img src="media/addon_caption.jpg" height="256">
 
 ## Direct Inference
 Import MDX class to inference from JSON data
@@ -206,13 +173,13 @@ mkdir ~/.hfcache && ln -s ~/.hfcache ~/.cache/huggingface
 ## Previous Experiments
 <img src="legacy/media/preview.gif">
 
+> - [Gradio user-interface addons](https://github.com/nimadez/mental-diffusion/tree/main/gradio/README.md) (mdx)
 > - [Legacy command-line interface and server](https://github.com/nimadez/mental-diffusion/tree/main/legacy/README.md) (diffusers)
 > - [ComfyUI bridge for VS Code extension](https://github.com/nimadez/mental-diffusion/tree/main/comfyui/README.md)
 
 ## History
 ```
-↑ Add image captioning and object detection
-↑ Add Gradio addons (webui)
+↑ Experimental Gradio addons (webui)
 ↑ Rewritten in 300 lines
 ↑ Port to Linux
 ↑ Back to Diffusers
@@ -233,7 +200,6 @@ Code released under the [MIT license](https://github.com/nimadez/mental-diffusio
 - [PyTorch](https://pytorch.org/)
 - [Stability-AI](https://github.com/Stability-AI)
 - [TAESD](https://github.com/madebyollin/taesd)
-- [Gradio](https://www.gradio.app/)
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)
 
 ##### Models

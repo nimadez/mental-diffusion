@@ -5,7 +5,6 @@
 #
 # Installation:
 # $ pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu121
-# $ pip install realesrgan
 #
 # Inference:
 # python3 mdx-upscale.py --help
@@ -22,24 +21,12 @@ URLS = [ "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealES
          "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth" ]
 
 
-# torchvision 0.17+ basicsr workaround
-__import__('warnings').filterwarnings("ignore", category=UserWarning) # disable esrgan/torchvision 0.16 warnings
-import sys
-try:
-    import torchvision.transforms.functional_tensor
-except ImportError:
-    try:
-        import torchvision.transforms.functional as functional
-        sys.modules["torchvision.transforms.functional_tensor"] = functional
-    except ImportError:
-        pass
-
-
-import torch, gc, os, numpy
+import os, sys, gc, torch, numpy
 from PIL import Image
 from argparse import ArgumentParser
-from realesrgan import RealESRGANer
-from basicsr.archs.rrdbnet_arch import RRDBNet
+
+sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))) + '/libs')
+from realesrgan import RealESRGANer, RRDBNet
 
 
 def arg_parser(args):
@@ -64,7 +51,7 @@ class Upscaler():
             torch.hub.download_url_to_file(url, model_path, progress=True)
 
             
-    def inference_realesrgan(self, model_type, img_path, output):
+    def inference(self, model_type, img_path, output):
         model = None
         model_name = None
         model_path = None
@@ -126,7 +113,7 @@ if __name__== "__main__":
 
         if args.model in ["x2", "x4"]:
             if os.path.exists(args.image):
-                Upscaler().inference_realesrgan(args.model, args.image, args.output)
+                Upscaler().inference(args.model, args.image, args.output)
             else:
                 print("ERROR: Image does not exist.")
         else:

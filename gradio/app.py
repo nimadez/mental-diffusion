@@ -12,8 +12,8 @@ from PIL import Image, ImageOps
 
 USER = __import__('getpass').getuser()
 ROOT_GRADIO = os.path.dirname(os.path.realpath(__file__))
-ROOT_ADDONS = os.path.dirname(ROOT_GRADIO)
-ROOT_SRC = os.path.dirname(ROOT_ADDONS)
+ROOT_ADDONS = os.path.dirname(ROOT_GRADIO) + '/src/addons'
+ROOT_SRC = os.path.dirname(ROOT_GRADIO) + '/src'
 ROOT = os.path.dirname(ROOT_SRC)
 DOWNLOADS = f"/home/{USER}/Downloads"
 

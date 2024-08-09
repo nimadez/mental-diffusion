@@ -3,8 +3,9 @@ torchvision==0.18.1+cu121
 accelerate
 diffusers==0.30.0
 transformers
-peft
 safetensors
+peft
+
+opencv-python
 
 #gradio==4.37.2
-#realesrgan==0.3.0

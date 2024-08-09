@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# run addons in development mode (auto reload)
-
-if [ $# -eq 1 ]; then
-    ~/.venv/mdx/bin/gradio src/addons/gradio/"$1".py --demo-name=app
-else
-    echo help: addon-dev [addon-name]
-fi

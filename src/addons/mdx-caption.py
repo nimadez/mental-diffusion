@@ -24,7 +24,7 @@ MAX_TOKENS = 256
 
 
 __import__('warnings').filterwarnings("ignore", category=FutureWarning)
-import os, sys, gc, time, base64, requests
+import os, sys, gc, time, base64, requests, datetime
 import torch
 from argparse import ArgumentParser
 from pathlib import Path
@@ -69,6 +69,8 @@ class ImageCaption():
 
 
     def draw_caption(self, image, text):
+        now = datetime.datetime.now().isoformat(sep=" ", timespec="seconds")
+        text = f"{text.capitalize()} | {now}"
         image = image.convert("RGB")
         w, h = image.size
         font = ImageFont.truetype(BytesIO(base64.b64decode(TTF)), 14)
