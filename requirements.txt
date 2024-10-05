@@ -1,0 +1,11 @@
+torch
+torchvision
+accelerate
+diffusers==0.30.2
+transformers
+safetensors
+peft
+
+opencv-python
+
+#gradio==4.42.0

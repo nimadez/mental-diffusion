@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# run addons in development mode (auto reload)
+
+~/.venv/mdx/bin/gradio src/mdx-ui.py --demo-name=app

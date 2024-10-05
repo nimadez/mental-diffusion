@@ -1,0 +1,37 @@
+{
+    "use_cpu": false,
+    "low_vram": true,
+
+    "offline": false,
+    "http_proxy": null,
+    "host": "localhost",
+    "port": 8011,
+
+    "model": "sd",
+    "scheduler": "ddim",
+    "width": 512,
+    "height": 512,
+    "output": ".output",
+    "onefile": false,
+    "interrupt_save": false,
+
+    "checkpoints": [
+        "/media/$USER/local/ml/stable-diffusion/checkpoints/juggernaut_aftermath.safetensors",
+        "/media/$USER/local/ml/stable-diffusion/checkpoints/dreamshaper_8.safetensors",
+        "/media/$USER/local/ml/stable-diffusion/checkpoints/reliberate_v3.safetensors"
+    ],
+
+    "vaes": [
+        "/media/$USER/local/ml/stable-diffusion/vae/TRCVAE.safetensors"
+    ],
+
+    "loras": [
+        "/media/$USER/local/ml/stable-diffusion/loras/WorldofOrigami.safetensors"
+    ],
+
+    "realesrgans": [
+        "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+        "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+        "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
+    ]
+}

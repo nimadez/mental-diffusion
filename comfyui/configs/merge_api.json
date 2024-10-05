@@ -1,0 +1,66 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "undefined.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "2": {
+    "inputs": {
+      "ckpt_name": "undefined.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "3": {
+    "inputs": {
+      "ratio": 1,
+      "model1": [
+        "1",
+        0
+      ],
+      "model2": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "ModelMergeSimple"
+  },
+  "5": {
+    "inputs": {
+      "ratio": 1,
+      "clip1": [
+        "1",
+        1
+      ],
+      "clip2": [
+        "2",
+        1
+      ]
+    },
+    "class_type": "CLIPMergeSimple"
+  },
+  "10": {
+    "inputs": {
+      "vae_name": "vae-ft-mse-840000-ema-pruned.safetensors"
+    },
+    "class_type": "VAELoader"
+  },
+  "11": {
+    "inputs": {
+      "filename_prefix": "checkpoints/ComfyUI",
+      "model": [
+        "3",
+        0
+      ],
+      "clip": [
+        "5",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "CheckpointSave"
+  }
+}

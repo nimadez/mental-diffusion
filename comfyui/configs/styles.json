@@ -1,0 +1,57 @@
+{
+    "0": {
+        "name": "Cinematic",
+        "positive": "cinematic still {prompt} . emotional, harmonious, vignette, highly detailed, high budget, bokeh, cinemascope, moody, epic, gorgeous, film grain, grainy",
+        "negative" : "anime, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured"
+    },
+    "1": {
+        "name": "Photographic",
+        "positive": "cinematic photo {prompt} . 35mm photograph, film, bokeh, professional, 4k, highly detailed",
+        "negative": "drawing, painting, crayon, sketch, graphite, impressionist, noisy, blurry, soft, deformed, ugly"
+    },
+    "2": {
+        "name": "Anime",
+        "positive": "anime artwork {prompt} . anime style, key visual, vibrant, studio anime,  highly detailed",
+        "negative": "photo, deformed, black and white, realism, disfigured, low contrast"
+    },
+    "3": {
+        "name": "Manga",
+        "positive": "manga style {prompt} . vibrant, high-energy, detailed, iconic, Japanese comic style",
+        "negative": "ugly, deformed, noisy, blurry, low contrast, realism, photorealistic, Western comic style"
+    },
+    "4": {
+        "name": "Digital Art",
+        "positive": "concept art {prompt} . digital artwork, illustrative, painterly, matte painting, highly detailed",
+        "negative": "photo, photorealistic, realism, ugly"
+    },
+    "5": {
+        "name": "Pixel art",
+        "positive": "pixel-art {prompt} . low-res, blocky, pixel art style, 8-bit graphics",
+        "negative": "sloppy, messy, blurry, noisy, highly detailed, ultra textured, photo, realistic"
+    },
+    "6": {
+        "name": "Fantasy art",
+        "positive": "ethereal fantasy concept art of  {prompt} . magnificent, celestial, ethereal, painterly, epic, majestic, magical, fantasy art, cover art, dreamy",
+        "negative": "photographic, realistic, realism, 35mm film, dslr, cropped, frame, text, deformed, glitch, noise, noisy, off-center, deformed, cross-eyed, closed eyes, bad anatomy, ugly, disfigured, sloppy, duplicate, mutated, black and white"
+    },
+    "7": {
+        "name": "Neonpunk",
+        "positive": "neonpunk style {prompt} . cyberpunk, vaporwave, neon, vibes, vibrant, stunningly beautiful, crisp, detailed, sleek, ultramodern, magenta highlights, dark purple shadows, high contrast, cinematic, ultra detailed, intricate, professional",
+        "negative": "painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured"
+    },
+    "8": {
+        "name": "3D Model",
+        "positive": "professional 3d model {prompt} . octane render, highly detailed, volumetric, dramatic lighting",
+        "negative": "ugly, deformed, noisy, low poly, blurry, painting"
+    },
+    "9": {
+        "name": "Custom: Mars",
+        "positive": "a picture of {prompt} on mars, hyper realistic, cinematic, detailed, 8k",
+        "negative": "out of focus, text, watermark"
+    },
+    "10": {
+        "name": "Custom: Negative",
+        "positive": "",
+        "negative": "deformed, distorted, disfigured, poorly drawn, poorly drawn hands, poorly drawn face, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, mutated hands and fingers, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, malformed hands, out of focus, text, watermark"
+    }
+}
